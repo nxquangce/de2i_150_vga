@@ -15,8 +15,8 @@ parameter VGA_ADDR_WIDTH    = 19;
 parameter H_LOGIC_WIDTH     = 5;
 parameter V_LOGIC_WIDTH     = 5;
 
-parameter H_LOGIC_MAX       = 6'd31;
-parameter V_LOGIC_MAX       = 6'd23;
+parameter H_LOGIC_MAX       = 5'd31;
+parameter V_LOGIC_MAX       = 5'd23;
 
 parameter H_PHY_WIDTH     = 10;
 parameter V_PHY_WIDTH     = 9;
@@ -115,7 +115,7 @@ wire        vld;
 wire        vld_start;
 
 // Update interval time = 0.5s
-assign vld = (vld_cnt == VLD_0_5HZ_CNT_MAX);
+assign vld = (vld_cnt == VLD_1HZ_CNT_MAX);
 assign vld_start = (vld_cnt == 25'b0);
 always @(posedge clk) begin
     if (!DLY_RST) begin
@@ -171,12 +171,12 @@ draw_superpixel
     #(
     .SPIXEL_X_WIDTH    (H_LOGIC_WIDTH),
     .SPIXEL_Y_WIDTH    (V_LOGIC_WIDTH),
-    .SPIXEL_X_MAX      (H_LOGIC_MAX + 1),
-    .SPIXEL_Y_MAX      (V_LOGIC_MAX + 1),
+    .SPIXEL_X_MAX      (H_LOGIC_MAX),
+    .SPIXEL_Y_MAX      (V_LOGIC_MAX),
     .PIXEL_X_WIDTH     (H_PHY_WIDTH),
     .PIXEL_Y_WIDTH     (V_PHY_WIDTH),
-    .PIXEL_X_MAX       (H_PHY_MAX + 1),
-    .PIXEL_Y_MAX       (V_PHY_MAX + 1)
+    .PIXEL_X_MAX       (H_PHY_MAX),
+    .PIXEL_Y_MAX       (V_PHY_MAX)
     )
 pixel
     (
