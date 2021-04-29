@@ -15,8 +15,8 @@ parameter VGA_ADDR_WIDTH    = 19;
 parameter H_LOGIC_WIDTH     = 5;
 parameter V_LOGIC_WIDTH     = 5;
 
-parameter H_LOGIC_MAX       = 6'd31;
-parameter V_LOGIC_MAX       = 6'd23;
+parameter H_LOGIC_MAX       = 5'd31;
+parameter V_LOGIC_MAX       = 5'd23;
 
 parameter H_PHY_WIDTH     = 10;
 parameter V_PHY_WIDTH     = 9;
@@ -57,8 +57,10 @@ wire  [9:0] recon_VGA_G;
 wire  [9:0] recon_VGA_B;
 
 wire clk;
+wire rst;
 
 assign clk = CLOCK_50;
+assign rst = ~DLY_RST;
 
 Reset_Delay r0	(
     .iCLK(clk),
@@ -78,8 +80,8 @@ assign VGA_CLK = ~VGA_CTRL_CLK;
 
 
 wire [VGA_ADDR_WIDTH - 1 : 0] addr;
-reg  [COLOR_ID_WIDTH - 1 : 0] data;
-reg                           wren;
+wire [COLOR_ID_WIDTH - 1 : 0] data;
+wire                          wren;
 
 vga_controller_mod u4(
     .iRST_n     (DLY_RST),
@@ -113,7 +115,7 @@ wire        vld;
 wire        vld_start;
 
 // Update interval time = 0.5s
-assign vld = (vld_cnt == VLD_0_5HZ_CNT_MAX);
+assign vld = (vld_cnt == VLD_1HZ_CNT_MAX);
 assign vld_start = (vld_cnt == 25'b0);
 always @(posedge clk) begin
     if (!DLY_RST) begin
@@ -148,7 +150,7 @@ end
 
 // Update ram
 reg run;
-reg srun;
+// reg srun;
 wire done;
 wire [H_PHY_WIDTH - 1 : 0] tlx_physic;
 wire [V_PHY_WIDTH - 1 : 0] tly_physic;
@@ -159,110 +161,59 @@ wire [V_PHY_WIDTH - 1 : 0] oldtly_physic;
 wire [H_PHY_WIDTH - 1 : 0] oldbrx_physic;
 wire [V_PHY_WIDTH - 1 : 0] oldbry_physic;
 
-superpixel2pixel 
+wire [H_LOGIC_WIDTH - 1 : 0]  pixel_x_logic;
+wire [V_LOGIC_WIDTH - 1 : 0]  pixel_y_logic;
+wire [COLOR_ID_WIDTH - 1 : 0] pixel_color;
+wire                          pixel_vld;
+wire                          pixel_done;
+
+draw_superpixel 
     #(
     .SPIXEL_X_WIDTH    (H_LOGIC_WIDTH),
     .SPIXEL_Y_WIDTH    (V_LOGIC_WIDTH),
-    .SPIXEL_X_MAX      (H_LOGIC_MAX + 1),
-    .SPIXEL_Y_MAX      (V_LOGIC_MAX + 1),
+    .SPIXEL_X_MAX      (H_LOGIC_MAX),
+    .SPIXEL_Y_MAX      (V_LOGIC_MAX),
     .PIXEL_X_WIDTH     (H_PHY_WIDTH),
     .PIXEL_Y_WIDTH     (V_PHY_WIDTH),
-    .PIXEL_X_MAX       (H_PHY_MAX + 1),
-    .PIXEL_Y_MAX       (V_PHY_MAX + 1)
+    .PIXEL_X_MAX       (H_PHY_MAX),
+    .PIXEL_Y_MAX       (V_PHY_MAX)
     )
-current(
-    .x      (x_logic),
-    .y      (y_logic),
-    .tlx    (tlx_physic),
-    .tly    (tly_physic),
-    .brx    (brx_physic),
-    .bry    (bry_physic)
-);
+pixel
+    (
+    .clk        (clk),
+    .rst        (rst),
+    // USER IF
+    .x          (pixel_x_logic),
+    .y          (pixel_y_logic),
+    .idata      (pixel_color),
+    .idata_vld  (pixel_vld),
+    .odone      (pixel_done),
+    // VGA RAM IF
+    .oaddr      (addr),
+    .odata      (data),
+    .owren      (wren)
+    );
 
-superpixel2pixel
-    #(
-    .SPIXEL_X_WIDTH    (H_LOGIC_WIDTH),
-    .SPIXEL_Y_WIDTH    (V_LOGIC_WIDTH),
-    .SPIXEL_X_MAX      (H_LOGIC_MAX + 1),
-    .SPIXEL_Y_MAX      (V_LOGIC_MAX + 1),
-    .PIXEL_X_WIDTH     (H_PHY_WIDTH),
-    .PIXEL_Y_WIDTH     (V_PHY_WIDTH),
-    .PIXEL_X_MAX       (H_PHY_MAX + 1),
-    .PIXEL_Y_MAX       (V_PHY_MAX + 1)
-    )
+reg srun;
+reg old_vld;
 
-previous(
-    .x      (oldx_logic),
-    .y      (oldy_logic),
-    .tlx    (oldtlx_physic),
-    .tly    (oldtly_physic),
-    .brx    (oldbrx_physic),
-    .bry    (oldbry_physic)
-);
-
-pixel2addr p2a(
-    .x      (x_physic),
-    .y      (y_physic),
-    .addr   (addr)
-);
+assign pixel_x_logic = (srun) ? x_logic : oldx_logic;
+assign pixel_y_logic = (srun) ? y_logic : oldy_logic;
+assign pixel_color = (srun) ? 8'h0f : 8'hff;
+assign pixel_vld = vld_start | old_vld;
 
 always @(posedge clk) begin
-    if (!DLY_RST) begin
-        init <= 1'b1;
-    end
-    else if (done) begin
-        init <= 1'b0;
-    end
-end
-
-always @(posedge clk) begin
-    if (!DLY_RST | done) begin
-        run <= 1'b0;
-    end
-    else if (vld_start) begin
-        run <= 1'b1;
-    end
-end
-
-always @(posedge clk) begin
-    if (!DLY_RST) begin
-        x_physic <= 0;
-        y_physic <= 0;
-        data <= 0;
-        wren <= 0;
+    if (rst) begin
         srun <= 0;
+        old_vld <= 0;
     end
-    else if (done) begin
-        wren <= 0;
-        srun <= 0;
+    else if (pixel_done) begin
+        srun <= ~srun;
+        old_vld <= ~srun;
     end
-    else if (vld_start) begin
-        x_physic <= (init) ? tlx_physic : oldtlx_physic;
-        y_physic <= (init) ? tly_physic : oldtly_physic;
-        data <= (init) ? 8'h0f : 8'hff;
-        wren <= 1'b1;
-        srun <= 1'b0;
-    end
-    else if (run) begin
-        if (srun | init) begin
-            x_physic <= (x_physic == brx_physic) ? tlx_physic : x_physic + 1'b1;
-            y_physic <= (x_physic == brx_physic) ? y_physic + 1'b1 : y_physic;
-        end
-        else begin
-            if ((x_physic == oldbrx_physic) && (y_physic == oldbry_physic)) begin
-                x_physic <= tlx_physic;
-                y_physic <= tly_physic;
-                srun <= 1'b1;
-                data <= 8'h0f;
-            end 
-            else begin
-                x_physic <= (x_physic == oldbrx_physic) ? oldtlx_physic : x_physic + 1'b1;
-                y_physic <= (x_physic == oldbrx_physic) ? y_physic + 1'b1 : y_physic;
-            end
-        end
+    else begin
+        old_vld <= 0;
     end
 end
-
-assign done = (x_physic == (brx_physic)) && (y_physic == bry_physic);
 
 endmodule 
