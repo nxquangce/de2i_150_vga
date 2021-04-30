@@ -53,12 +53,14 @@ end
 //////INDEX addr.
 assign VGA_CLK_n = ~iVGA_CLK;
 vgaram2p (
+	// User
 	.data       (idata),
-	.rdaddress  (ADDR),
-	.rdclock    (iVGA_CLK),
 	.wraddress  (iaddr),
 	.wrclock    (iclk),
 	.wren       (iwren),
+	// VGA
+	.rdaddress  (ADDR),
+	.rdclock    (iVGA_CLK),
 	.q          (index)
     );
 //////Color table output

@@ -130,7 +130,7 @@ pixel2addr p2a(
 
 reg done_reg;
 always @(posedge clk) begin
-    done_reg = (rst) ? 0 : done;
+    done_reg <= (rst) ? 0 : done;
 end
 
 assign done = (x_physic == (brx_physic)) && (y_physic == bry_physic);
