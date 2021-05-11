@@ -140,8 +140,6 @@ always @(posedge clk) begin
         x_logic <= (x_logic == H_LOGIC_MAX) ? 0 : x_logic + 1'b1;
         y_logic <= ((y_logic == V_LOGIC_MAX) && (x_logic == H_LOGIC_MAX)) ? 0 : 
                    (x_logic == H_LOGIC_MAX) ? y_logic + 1'b1 : y_logic;
-        // x_logic <= 1;
-        // y_logic <= 1;
 
         oldx_logic <= x_logic;
         oldy_logic <= y_logic;
@@ -149,23 +147,15 @@ always @(posedge clk) begin
 end
 
 // Update ram
-reg run;
-// reg srun;
-wire done;
-wire [H_PHY_WIDTH - 1 : 0] tlx_physic;
-wire [V_PHY_WIDTH - 1 : 0] tly_physic;
-wire [H_PHY_WIDTH - 1 : 0] brx_physic;
-wire [V_PHY_WIDTH - 1 : 0] bry_physic;
-wire [H_PHY_WIDTH - 1 : 0] oldtlx_physic;
-wire [V_PHY_WIDTH - 1 : 0] oldtly_physic;
-wire [H_PHY_WIDTH - 1 : 0] oldbrx_physic;
-wire [V_PHY_WIDTH - 1 : 0] oldbry_physic;
-
 wire [H_LOGIC_WIDTH - 1 : 0]  pixel_x_logic;
 wire [V_LOGIC_WIDTH - 1 : 0]  pixel_y_logic;
 wire [COLOR_ID_WIDTH - 1 : 0] pixel_color;
 wire                          pixel_vld;
 wire                          pixel_done;
+
+wire [VGA_ADDR_WIDTH - 1 : 0] pixel_addr;
+wire [COLOR_ID_WIDTH - 1 : 0] pixel_data;
+wire                          pixel_wren;
 
 draw_superpixel 
     #(
@@ -189,9 +179,9 @@ pixel
     .idata_vld  (pixel_vld),
     .odone      (pixel_done),
     // VGA RAM IF
-    .oaddr      (addr),
-    .odata      (data),
-    .owren      (wren)
+    .oaddr      (pixel_addr),
+    .odata      (pixel_data),
+    .owren      (pixel_wren)
     );
 
 reg srun;
@@ -215,5 +205,50 @@ always @(posedge clk) begin
         old_vld <= 0;
     end
 end
+
+wire [H_LOGIC_WIDTH - 1 : 0]  rect_x0_logic;
+wire [V_LOGIC_WIDTH - 1 : 0]  rect_y0_logic;
+wire [H_LOGIC_WIDTH - 1 : 0]  rect_x1_logic;
+wire [V_LOGIC_WIDTH - 1 : 0]  rect_y1_logic;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_color;
+wire                          rect_vld;
+wire                          rect_done;
+
+wire [VGA_ADDR_WIDTH - 1 : 0] rect_addr;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_data;
+wire                          rect_wren;
+
+draw_rectangle_sp
+    #(
+    .SPIXEL_X_WIDTH    (H_LOGIC_WIDTH),
+    .SPIXEL_Y_WIDTH    (V_LOGIC_WIDTH),
+    .SPIXEL_X_MAX      (H_LOGIC_MAX),
+    .SPIXEL_Y_MAX      (V_LOGIC_MAX),
+    .PIXEL_X_WIDTH     (H_PHY_WIDTH),
+    .PIXEL_Y_WIDTH     (V_PHY_WIDTH),
+    .PIXEL_X_MAX       (H_PHY_MAX),
+    .PIXEL_Y_MAX       (V_PHY_MAX)
+    )
+rectangle_sp
+    (
+    .clk                (clk),
+    .rst                (rst),
+    // USER IF
+    .x0                 (rect_x0_logic),
+    .y0                 (rect_y0_logic),
+    .x1                 (rect_x1_logic),
+    .y1                 (rect_y1_logic),
+    .idata              (rect_color),
+    .idata_vld          (rect_vld),
+    .odone              (rect_done),
+    // VGA RAM IF
+    .oaddr              (rect_addr),
+    .odata              (rect_data),
+    .owren              (rect_wren)
+    );
+
+assign addr = pixel_addr | rect_addr;
+assign data = pixel_data | rect_data;
+assign wren = pixel_wren | rect_wren;
 
 endmodule 
