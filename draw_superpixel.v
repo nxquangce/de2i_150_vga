@@ -50,12 +50,12 @@ superpixel2pixel
     #(
     .SPIXEL_X_WIDTH (SPIXEL_X_WIDTH),
     .SPIXEL_Y_WIDTH (SPIXEL_Y_WIDTH),
-    .SPIXEL_X_MAX   (SPIXEL_X_MAX + 1),
-    .SPIXEL_Y_MAX   (SPIXEL_Y_MAX + 1),
+    .SPIXEL_X_MAX   (SPIXEL_X_MAX),
+    .SPIXEL_Y_MAX   (SPIXEL_Y_MAX),
     .PIXEL_X_WIDTH  (PIXEL_X_WIDTH),
     .PIXEL_Y_WIDTH  (PIXEL_Y_WIDTH),
-    .PIXEL_X_MAX    (PIXEL_X_MAX + 1),
-    .PIXEL_Y_MAX    (PIXEL_Y_MAX + 1)
+    .PIXEL_X_MAX    (PIXEL_X_MAX),
+    .PIXEL_Y_MAX    (PIXEL_Y_MAX)
     )
 convert
     (
@@ -136,8 +136,8 @@ end
 assign done = (x_physic == (brx_physic)) && (y_physic == bry_physic);
 assign odone = done_reg;
 
-assign oaddr = addr;
-assign odata = data;
+assign oaddr = (wren) ? addr : 0;
+assign odata = (wren) ? data : 0;
 assign owren = wren;
 
 endmodule
