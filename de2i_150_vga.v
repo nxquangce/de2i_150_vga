@@ -1,5 +1,6 @@
 module de2i_150_vga(
     CLOCK_50,
+    SW,
     KEY,
     VGA_B,
     VGA_BLANK_N,
@@ -27,6 +28,7 @@ parameter V_PHY_MAX       = 9'd479;
 parameter COLOR_ID_WIDTH   = 8;
 
 input        CLOCK_50;
+input [17:0] SW;
 input  [3:0] KEY;
 output [7:0] VGA_B;
 output       VGA_BLANK_N;
@@ -65,7 +67,7 @@ assign rst = ~DLY_RST;
 Reset_Delay r0	(
     .iCLK(clk),
     .oRESET(DLY_RST),
-    .iRST_n(KEY[0]) 	
+    .iRST_n(SW[0])
     );
 
 reg vga_clk_reg;
@@ -97,6 +99,13 @@ vga_controller_mod u4(
     .g_data     (VGA_G),
     .r_data     (VGA_R)
     );
+
+// Detect key press
+wire [3:0] key;
+edge_detect key_right   (clk, 2'b10, KEY[0], key[0]);
+edge_detect key_down    (clk, 2'b10, KEY[1], key[1]);
+edge_detect key_up      (clk, 2'b10, KEY[2], key[2]);
+edge_detect key_left    (clk, 2'b10, KEY[3], key[3]);
 
 //// Display a superpixel move left to right, top to down
 reg [H_LOGIC_WIDTH - 1 : 0] oldx_logic;
@@ -168,6 +177,21 @@ always @(posedge clk) begin
     end
 end
 
+wire [FF_DATA_WIDTH - 1 : 0] snake_cmd;
+wire                         snake_cmd_vld;
+
+snake_core snake_game(
+    .clk        (clk),
+    .rst        (rst),
+    .enb        (1'b1),
+    .up         (key[2]),
+    .down       (key[1]),
+    .left       (key[3]),
+    .right      (key[0]),
+    .cmd        (snake_cmd),
+    .cmd_vld    (snake_cmd_vld)
+);
+
 reg                          ff_block;
 wire                         ff_full;
 wire                         ff_empty;
@@ -186,8 +210,8 @@ always @(posedge clk) begin
     end
 end
 
-assign ff_wren = |vld_start_pp[1 : 0];
-assign ff_wdat = cmd;
+assign ff_wren = snake_cmd_vld; //|vld_start_pp[1 : 0];
+assign ff_wdat = snake_cmd; // cmd;
 assign ff_rden = ~(ff_empty | ff_block);
 
 fifo 
