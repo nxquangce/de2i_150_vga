@@ -43,22 +43,24 @@ video_sync_generator LTM_ins (.vga_clk(iVGA_CLK),
 always@(posedge iVGA_CLK,negedge iRST_n)
 begin
   if (!iRST_n)
-     ADDR<=19'd4;
-  else if (cHS==1'b0 && cVS==1'b0)
-     ADDR<=19'd4;
-  else if (cBLANK_n==1'b1)
-     ADDR<=ADDR+1;
+     ADDR <= 19'd4;
+  else if (cHS == 1'b0 && cVS == 1'b0)
+     ADDR <= 19'd4;
+  else if (cBLANK_n == 1'b1)
+     ADDR <= ADDR + 1'b1;
 end
 //////////////////////////
 //////INDEX addr.
 assign VGA_CLK_n = ~iVGA_CLK;
 vgaram2p (
+	// User
 	.data       (idata),
-	.rdaddress  (ADDR),
-	.rdclock    (iVGA_CLK),
 	.wraddress  (iaddr),
 	.wrclock    (iclk),
 	.wren       (iwren),
+	// VGA
+	.rdaddress  (ADDR),
+	.rdclock    (iVGA_CLK),
 	.q          (index)
     );
 //////Color table output

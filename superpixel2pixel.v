@@ -9,14 +9,16 @@ module superpixel2pixel (
 
 parameter SPIXEL_X_WIDTH    = 6;
 parameter SPIXEL_Y_WIDTH    = 6;
-parameter SPIXEL_X_MAX      = 64;
-parameter SPIXEL_Y_MAX      = 48;
+parameter SPIXEL_X_MAX      = 63;
+parameter SPIXEL_Y_MAX      = 47;
 parameter PIXEL_X_WIDTH     = 10;
 parameter PIXEL_Y_WIDTH     = 9;
-parameter PIXEL_X_MAX       = 640;
-parameter PIXEL_Y_MAX       = 480;
+parameter PIXEL_X_MAX       = 639;
+parameter PIXEL_Y_MAX       = 479;
 
-localparam SPIXEL_PHY       = PIXEL_X_MAX / SPIXEL_X_MAX;
+localparam PIXEL_X_MAX_1    = PIXEL_X_MAX + 1;
+localparam SPIXEL_X_MAX_1   = SPIXEL_X_MAX + 1;
+localparam SPIXEL_PHY       = PIXEL_X_MAX_1 / SPIXEL_X_MAX_1;
 
 input [SPIXEL_X_WIDTH - 1 : 0] x;
 input [SPIXEL_Y_WIDTH - 1 : 0] y;
