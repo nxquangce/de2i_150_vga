@@ -88,6 +88,7 @@ always @(posedge clk) begin
     end
 end
 
+wire                         snake_score;
 wire [H_LOGIC_WIDTH - 1 : 0] snake_headx;
 wire [V_LOGIC_WIDTH - 1 : 0] snake_heady;
 wire [H_LOGIC_WIDTH - 1 : 0] snake_tailx;
@@ -95,6 +96,7 @@ wire [V_LOGIC_WIDTH - 1 : 0] snake_taily;
 wire [H_LOGIC_WIDTH - 1 : 0] preyx;
 wire [V_LOGIC_WIDTH - 1 : 0] preyy;
 
+wire score;
 
 snake_body
     #(
@@ -111,18 +113,20 @@ i_snake_body (
     .enb                (enb),
     .direction          (dir_reg),
     .valid              (vld_start),
-    .score              (1'b0),
+    .snake_score        (snake_score),
     .snake_headx        (snake_headx),
     .snake_heady        (snake_heady),
     .snake_tailx        (snake_tailx),
-    .snake_taily        (snake_taily)
+    .snake_taily        (snake_taily),
+    .preyx              (preyx),
+    .preyy              (preyy)
     );
 
 snake_prey i_snake_prey(
     .clk                (clk),
     .rst                (rst),
     .enb                (enb),
-    .valid              (vld_start),
+    .valid              (snake_score),
     .preyx              (preyx),
     .preyy              (preyy)
 );

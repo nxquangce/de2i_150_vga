@@ -62,7 +62,7 @@ wire clk;
 wire rst;
 
 assign clk = CLOCK_50;
-assign rst = ~DLY_RST;
+assign rst = SW[1];
 
 Reset_Delay r0	(
     .iCLK(clk),

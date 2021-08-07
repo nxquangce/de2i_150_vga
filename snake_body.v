@@ -4,11 +4,13 @@ module snake_body(
     enb,
     direction,
     valid,
-    score,
+    snake_score,
     snake_headx,
     snake_heady,
     snake_tailx,
-    snake_taily
+    snake_taily,
+    preyx,
+    preyy
 );
 
 parameter SNAKE_DEPTH_MAX   = 128;
@@ -32,11 +34,14 @@ input                           rst;
 input                           enb;
 input [DIRECTION_WIDTH - 1 : 0] direction;
 input                           valid;
-input                           score;
+output                          snake_score;
 output  [H_LOGIC_WIDTH - 1 : 0] snake_headx;
 output  [V_LOGIC_WIDTH - 1 : 0] snake_heady;
 output  [H_LOGIC_WIDTH - 1 : 0] snake_tailx;
 output  [V_LOGIC_WIDTH - 1 : 0] snake_taily;
+input   [H_LOGIC_WIDTH - 1 : 0] preyx;
+input   [V_LOGIC_WIDTH - 1 : 0] preyy;
+
 
 reg [SNAKE_DEPTH_MAX - 1 : 0] body;
 reg [SNAKE_WIDTH     - 1 : 0] body_length;
@@ -89,6 +94,10 @@ wire                         ff_rden;
 wire                         ff_rvld;
 wire [FF_DATA_WIDTH - 1 : 0] ff_wdat;
 wire [FF_DATA_WIDTH - 1 : 0] ff_rdat;
+wire [FF_DATA_WIDTH - 1 : 0] ff_check_dat;
+wire                         ff_check_res;
+wire                         ff_check_vld;
+wire                         score;
 
 reg valid_pp;
 always @(posedge clk) begin
@@ -110,23 +119,30 @@ end
 assign ff_wren = (enb & valid_pp) | init;
 assign ff_wdat = (init) ? ff_wdat_init : {headx, heady};
 assign ff_rden = (enb & valid) & (~score);
+assign ff_check_dat = {preyx, preyy};
+assign score = ff_check_res & ff_check_vld;
+assign snake_score = score;
 
-fifo 
+fifo_wcheck 
     #(
     .ADDR_WIDTH (SNAKE_WIDTH),
     .DATA_WIDTH (FF_DATA_WIDTH),
     .FIFO_DEPTH (SNAKE_DEPTH_MAX)
     )
 snake_fifo (
-    .clk        (clk),
-    .rst        (rst),
-    .wren       (ff_wren),
-    .wdat       (ff_wdat),
-    .rden       (ff_rden),
-    .rdat       (ff_rdat),
-    .rvld       (ff_rvld),
-    .full       (ff_full),
-    .empty      (ff_empty)
+    .clk            (clk),
+    .rst            (rst),
+    .wren           (ff_wren),
+    .wdat           (ff_wdat),
+    .rden           (ff_rden),
+    .rdat           (ff_rdat),
+    .rvld           (ff_rvld),
+    .full           (ff_full),
+    .empty          (ff_empty),
+    .check_req      (valid_pp),
+    .check_dat      (ff_check_dat),
+    .check_res      (ff_check_res),
+    .check_vld      (ff_check_vld)
 );
 
 always @(posedge clk) begin
