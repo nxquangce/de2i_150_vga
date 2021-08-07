@@ -74,10 +74,10 @@ begin
          if (v_cnt==vert_line-1)
             v_cnt<=10'd0;
          else
-            v_cnt<=v_cnt+1;
+            v_cnt<=v_cnt+1'b1;
       end
       else
-         h_cnt<=h_cnt+1;
+         h_cnt<=h_cnt+1'b1;
     end
 end
 /////

@@ -128,6 +128,7 @@ pixel2addr p2a(
     .addr   (addr)
 );
 
+wire done;
 reg done_reg;
 always @(posedge clk) begin
     done_reg <= (rst) ? 0 : done;
