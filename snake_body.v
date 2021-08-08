@@ -69,9 +69,9 @@ always @(posedge clk) begin
 end
 
 always @(posedge clk) begin
-    if (rst) begin
-        headx <= 'd32;
-        heady <= 'd32;
+    if (rst | init) begin
+        headx <= 'd16;
+        heady <= 'd11;
     end
     else if (enb & valid) begin
         case (direction)
@@ -118,7 +118,7 @@ end
 
 assign ff_wren = (enb & valid_pp) | init;
 assign ff_wdat = (init) ? ff_wdat_init : {headx, heady};
-assign ff_rden = (enb & valid) & (~score);
+assign ff_rden = enb & ff_check_vld & (~ff_check_res);
 assign ff_check_dat = {preyx, preyy};
 assign score = ff_check_res & ff_check_vld;
 assign snake_score = score;
@@ -146,9 +146,9 @@ snake_fifo (
 );
 
 always @(posedge clk) begin
-    if (rst) begin
-        tailx <= 'd31;
-        taily <= 'd32;
+    if (rst | init) begin
+        tailx <= 'd15;
+        taily <= 'd11;
     end
     else if (ff_rvld) begin
         {tailx, taily} <= ff_rdat;

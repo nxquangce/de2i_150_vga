@@ -42,11 +42,11 @@ always @(posedge clk) begin
     end
     else if (enb) begin
         casex ({up, down, left, right})
-        4'b1xxx: dir_reg = DIR_UP;
-        4'b01xx: dir_reg = DIR_DOWN;
-        4'b001x: dir_reg = DIR_LEFT;
-        4'b0001: dir_reg = DIR_RIGHT;
-        default: dir_reg = dir_reg;
+        4'b1xxx: dir_reg <= (dir_reg == DIR_DOWN)  ? DIR_DOWN   : DIR_UP;
+        4'b01xx: dir_reg <= (dir_reg == DIR_UP)    ? DIR_UP     : DIR_DOWN;
+        4'b001x: dir_reg <= (dir_reg == DIR_RIGHT) ? DIR_RIGHT  : DIR_LEFT;
+        4'b0001: dir_reg <= (dir_reg == DIR_LEFT)  ? DIR_LEFT   : DIR_RIGHT;
+        default: dir_reg <= dir_reg;
     endcase
     end
 end
@@ -75,9 +75,8 @@ always @(posedge clk) begin
 end
 
 reg init;
+reg [2 : 0] init_pp;
 wire init_done;
-
-assign init_done = vld;
 
 always @(posedge clk) begin
     if (rst) begin
@@ -86,6 +85,8 @@ always @(posedge clk) begin
     else if (init_done) begin
         init <= 1'b0;
     end
+    init_pp[0] <= init;
+    init_pp[2:1] <= init_pp[1:0];
 end
 
 wire                         snake_score;
@@ -95,8 +96,18 @@ wire [H_LOGIC_WIDTH - 1 : 0] snake_tailx;
 wire [V_LOGIC_WIDTH - 1 : 0] snake_taily;
 wire [H_LOGIC_WIDTH - 1 : 0] preyx;
 wire [V_LOGIC_WIDTH - 1 : 0] preyy;
+wire                         prey_vld;
 
-wire score;
+reg user_score;
+
+always @(posedge clk) begin
+    if (rst) begin
+        user_score <= 0;
+    end
+    else if (snake_score) begin
+        user_score <= user_score + 1'b1;
+    end
+end
 
 snake_body
     #(
@@ -128,7 +139,8 @@ snake_prey i_snake_prey(
     .enb                (enb),
     .valid              (snake_score),
     .preyx              (preyx),
-    .preyy              (preyy)
+    .preyy              (preyy),
+    .prey_vld           (prey_vld)
 );
 
 reg [CMD_WIDTH - 1 : 0] cmd_reg;
@@ -136,16 +148,29 @@ reg                     cmd_vld_reg;
 reg             [1 : 0] cmd_cnt;
 wire                    cmd_cnt_max_vld;
 
+reg             [1 : 0] cmd_init_cnt;
+
 assign cmd_cnt_max_vld = cmd_cnt == 2'b11;
+assign init_done = cmd_init_cnt == 2'b10;
 
 always @(posedge clk) begin
     if (rst | vld_start) begin
         cmd_reg <= 0;
         cmd_cnt <= 0;
+        cmd_init_cnt <= 0;
         cmd_vld_reg <= 0;
     end
     if (init) begin
-        cmd_reg <= {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
+        cmd_init_cnt <= cmd_init_cnt + 1'b1;
+        cmd_vld_reg <= 1'b1;
+        if (cmd_init_cnt == 0) begin
+            cmd_reg <= {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
+        end else begin
+            cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
+        end
+    end
+    else if (prey_vld) begin
+        cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
         cmd_vld_reg <= 1'b1;
     end
     else if (~cmd_cnt_max_vld) begin
@@ -156,9 +181,6 @@ always @(posedge clk) begin
         end
         else if (cmd_cnt == 1) begin
             cmd_reg <= {4'h0, snake_tailx, snake_taily, 8'hff, 10'b0};
-        end
-        else begin
-            cmd_reg <= {4'h0, preyx, preyy, 8'he0, 10'b0};
         end
     end
     else begin
