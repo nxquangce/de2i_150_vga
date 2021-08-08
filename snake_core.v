@@ -35,22 +35,6 @@ input                      right;
 output [CMD_WIDTH - 1 : 0] cmd;
 output                     cmd_vld;
 
-reg [DIRECTION_WIDTH - 1 : 0] dir_reg;
-always @(posedge clk) begin
-    if (rst) begin
-        dir_reg <= DIR_RIGHT;
-    end
-    else if (enb) begin
-        casex ({up, down, left, right})
-        4'b1xxx: dir_reg <= (dir_reg == DIR_DOWN)  ? DIR_DOWN   : DIR_UP;
-        4'b01xx: dir_reg <= (dir_reg == DIR_UP)    ? DIR_UP     : DIR_DOWN;
-        4'b001x: dir_reg <= (dir_reg == DIR_RIGHT) ? DIR_RIGHT  : DIR_LEFT;
-        4'b0001: dir_reg <= (dir_reg == DIR_LEFT)  ? DIR_LEFT   : DIR_RIGHT;
-        default: dir_reg <= dir_reg;
-    endcase
-    end
-end
-
 localparam VLD_1HZ_CNT_MAX = 25'd24999999;
 localparam VLD_0_5HZ_CNT_MAX = 25'd12499999;
 reg  [24:0] vld_cnt;
@@ -89,7 +73,35 @@ always @(posedge clk) begin
     init_pp[2:1] <= init_pp[1:0];
 end
 
+reg [DIRECTION_WIDTH - 1 : 0] dir_detect_reg;
+reg [DIRECTION_WIDTH - 1 : 0] dir_reg;
+
+always @(posedge clk) begin
+    if (rst) begin
+        dir_detect_reg <= DIR_RIGHT;
+    end
+    else if (enb) begin
+        casex ({up, down, left, right})
+        4'b1xxx: dir_detect_reg <= (dir_reg == DIR_DOWN)  ? DIR_DOWN   : DIR_UP;
+        4'b01xx: dir_detect_reg <= (dir_reg == DIR_UP)    ? DIR_UP     : DIR_DOWN;
+        4'b001x: dir_detect_reg <= (dir_reg == DIR_RIGHT) ? DIR_RIGHT  : DIR_LEFT;
+        4'b0001: dir_detect_reg <= (dir_reg == DIR_LEFT)  ? DIR_LEFT   : DIR_RIGHT;
+        default: dir_detect_reg <= dir_detect_reg;
+    endcase
+    end
+end
+
+always @(posedge clk) begin
+    if (rst) begin
+        dir_reg <= DIR_RIGHT;
+    end
+    else if (vld) begin
+        dir_reg <= dir_detect_reg;
+    end
+end
+
 wire                         snake_score;
+wire                         snake_lose;
 wire [H_LOGIC_WIDTH - 1 : 0] snake_headx;
 wire [V_LOGIC_WIDTH - 1 : 0] snake_heady;
 wire [H_LOGIC_WIDTH - 1 : 0] snake_tailx;
@@ -125,6 +137,7 @@ i_snake_body (
     .direction          (dir_reg),
     .valid              (vld_start),
     .snake_score        (snake_score),
+    .snake_lose         (snake_lose),
     .snake_headx        (snake_headx),
     .snake_heady        (snake_heady),
     .snake_tailx        (snake_tailx),
@@ -154,7 +167,7 @@ assign cmd_cnt_max_vld = cmd_cnt == 2'b11;
 assign init_done = cmd_init_cnt == 2'b10;
 
 always @(posedge clk) begin
-    if (rst | vld_start) begin
+    if (rst | vld_start | snake_lose) begin
         cmd_reg <= 0;
         cmd_cnt <= 0;
         cmd_init_cnt <= 0;

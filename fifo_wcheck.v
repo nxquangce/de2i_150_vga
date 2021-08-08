@@ -8,6 +8,8 @@ module fifo_wcheck(
     rvld,
     full,
     empty,
+    wcheck_res,
+    wcheck_vld,
     check_req,
     check_dat,
     check_res,
@@ -27,6 +29,8 @@ output [DATA_WIDTH - 1 : 0] rdat;
 output                      rvld;
 output                      full;
 output                      empty;
+output                      wcheck_res;
+output                      wcheck_vld;
 input                       check_req;
 input  [DATA_WIDTH - 1 : 0] check_dat;
 output                      check_res;
@@ -96,6 +100,40 @@ end
 // Read data out
 assign rdat = rd_data_reg;
 assign rvld = rd_data_vld_reg;
+
+// Check write
+reg                      wcheck_state;
+reg [DATA_WIDTH - 1 : 0] rdat_wcheck;
+reg [ADDR_WIDTH     : 0] wcheck_ptr;
+
+wire wcheck_dat;
+assign wcheck_dat = ff_mem[wr_ptr - 1'b1];
+
+always @(posedge clk) begin
+    if (rst | wcheck_vld) begin
+        wcheck_ptr <= 0;
+        wcheck_state <= 0;
+    end
+    else if (wren) begin
+        wcheck_state <= 1'b1;
+        wcheck_ptr <= rd_ptr;
+    end
+    else if (wcheck_state) begin
+        wcheck_ptr <= wcheck_ptr + 1'b1;
+    end
+end
+
+always @(posedge clk) begin
+    if (rst) begin
+        rdat_wcheck <= 0;
+    end
+    else if (wcheck_state) begin
+        rdat_wcheck <= ff_mem[wcheck_ptr];
+    end
+end
+
+assign wcheck_res = (wcheck_dat == rdat_wcheck);
+assign wcheck_vld = (wcheck_res | wcheck_ptr == (wr_ptr - 1'b1)) & wcheck_state;
 
 // Check
 reg                      check_state;
