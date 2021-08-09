@@ -178,7 +178,7 @@ always @(posedge clk) begin
     if (rst) begin
         lose <= 1'b0;
     end
-    else if (ff_wcheck_res & ff_check_vld) begin
+    else if (ff_wcheck_res & ff_wcheck_vld) begin
         lose <= 1'b1;
     end
 end

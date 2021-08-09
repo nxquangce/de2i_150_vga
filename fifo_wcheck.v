@@ -106,7 +106,7 @@ reg                      wcheck_state;
 reg [DATA_WIDTH - 1 : 0] rdat_wcheck;
 reg [ADDR_WIDTH     : 0] wcheck_ptr;
 
-wire wcheck_dat;
+wire [DATA_WIDTH - 1 : 0] wcheck_dat;
 assign wcheck_dat = ff_mem[wr_ptr - 1'b1];
 
 always @(posedge clk) begin
@@ -133,7 +133,7 @@ always @(posedge clk) begin
 end
 
 assign wcheck_res = (wcheck_dat == rdat_wcheck);
-assign wcheck_vld = (wcheck_res | wcheck_ptr == (wr_ptr - 1'b1)) & wcheck_state;
+assign wcheck_vld = (wcheck_res | wcheck_ptr == (wr_ptr - 2'b10)) & wcheck_state;
 
 // Check
 reg                      check_state;
