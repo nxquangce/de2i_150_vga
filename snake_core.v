@@ -24,7 +24,7 @@ parameter V_PHY_MAX         = 9'd479;
 localparam SPIXEL_PHY       = (H_PHY_MAX + 1) / (H_LOGIC_MAX + 1);
 
 localparam SNAKE_H_MAX      = H_LOGIC_MAX;
-localparam SNAKE_V_MAX      = V_LOGIC_MAX - 1'b1;
+localparam SNAKE_V_MAX      = V_LOGIC_MAX - 2'd2;
 
 localparam CMD_WIDTH        = 4 + (H_LOGIC_WIDTH + V_LOGIC_WIDTH) * 2 + COLOR_ID_WIDTH; // = 32
 localparam DIRECTION_WIDTH  = 2;
@@ -59,7 +59,7 @@ reg [CMD_WIDTH - 1 : 0] cmd_reg;
 reg                     cmd_vld_reg;
 reg             [1 : 0] cmd_cnt;
 wire                    cmd_cnt_max_vld;
-reg             [2 : 0] cmd_init_cnt;
+reg             [3 : 0] cmd_init_cnt;
 
 // Update interval time = 0.25s
 assign vld = (vld_cnt == VLD_0_5HZ_CNT_MAX);
@@ -182,11 +182,17 @@ i_snake_prey(
 
 // Draw Command generate
 localparam CMD_CLEAR_SCREEN  = {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
-localparam CMD_BORDER_LINE_0 = {4'h9, 10'b0, 9'd460, 8'h02, 1'b0};
-localparam CMD_BORDER_LINE_1 = {4'h9, H_PHY_MAX, 9'd462, 8'h02, 1'b1};
+localparam CMD_BORDER_LINE_0 = {4'h9, 10'b0, 9'd440, 8'h02, 1'b0};
+localparam CMD_BORDER_LINE_1 = {4'h9, H_PHY_MAX, 9'd442, 8'h02, 1'b1};
+localparam CMD_POINT_ZERO0_0 = {4'ha, 10'd619, 9'd450, 8'h30, 1'b0};
+localparam CMD_POINT_ZERO0_1 = {4'ha, 8'h00, 4'h1, 16'h1};
+localparam CMD_POINT_ZERO1_0 = {4'ha, 10'd599, 9'd450, 8'h30, 1'b0};
+localparam CMD_POINT_ZERO1_1 = {4'ha, 8'h00, 4'h1, 16'h1};
+localparam CMD_POINT_ZERO2_0 = {4'ha, 10'd579, 9'd450, 8'h30, 1'b0};
+localparam CMD_POINT_ZERO2_1 = {4'ha, 8'h00, 4'h1, 16'h1};
 
 assign cmd_cnt_max_vld = cmd_cnt == 2'b10;
-assign init_done = cmd_init_cnt == 3'b011;
+assign init_done = cmd_init_cnt == 4'b1001;
 
 always @(posedge clk) begin
     if (rst | vld_start | snake_lose) begin
@@ -200,10 +206,16 @@ always @(posedge clk) begin
         cmd_vld_reg <= 1'b1;
 
         case (cmd_init_cnt)
-            3'b000: cmd_reg <= CMD_CLEAR_SCREEN;
-            3'b001: cmd_reg <= CMD_BORDER_LINE_0;
-            3'b010: cmd_reg <= CMD_BORDER_LINE_1;
-            3'b011: cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
+            4'b0000: cmd_reg <= CMD_CLEAR_SCREEN;
+            4'b0001: cmd_reg <= CMD_BORDER_LINE_0;
+            4'b0010: cmd_reg <= CMD_BORDER_LINE_1;
+            4'b0011: cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
+            4'b0100: cmd_reg <= CMD_POINT_ZERO0_0;
+            4'b0101: cmd_reg <= CMD_POINT_ZERO0_1;
+            4'b0110: cmd_reg <= CMD_POINT_ZERO1_0;
+            4'b0111: cmd_reg <= CMD_POINT_ZERO1_1;
+            4'b1000: cmd_reg <= CMD_POINT_ZERO2_0;
+            4'b1001: cmd_reg <= CMD_POINT_ZERO2_1;
             default: cmd_reg <= cmd_reg;
         endcase
     end
