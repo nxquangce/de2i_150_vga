@@ -58,9 +58,18 @@ always @(posedge clk) begin
     end
 end
 
-reg init;
+reg         init;
 reg [2 : 0] init_pp;
-wire init_done;
+wire        init_done;
+wire        core_enb;
+
+reg [CMD_WIDTH - 1 : 0] cmd_reg;
+reg                     cmd_vld_reg;
+reg             [1 : 0] cmd_cnt;
+wire                    cmd_cnt_max_vld;
+reg             [1 : 0] cmd_init_cnt;
+
+assign core_enb = enb & (~init);
 
 always @(posedge clk) begin
     if (rst) begin
@@ -133,7 +142,7 @@ snake_body
 i_snake_body (
     .clk                (clk),
     .rst                (rst),
-    .enb                (enb),
+    .enb                (core_enb),
     .direction          (dir_reg),
     .valid              (vld_start),
     .snake_score        (snake_score),
@@ -149,22 +158,17 @@ i_snake_body (
 snake_prey i_snake_prey(
     .clk                (clk),
     .rst                (rst),
-    .enb                (enb),
+    .enb                (core_enb),
     .valid              (snake_score),
     .preyx              (preyx),
     .preyy              (preyy),
     .prey_vld           (prey_vld)
 );
 
-reg [CMD_WIDTH - 1 : 0] cmd_reg;
-reg                     cmd_vld_reg;
-reg             [1 : 0] cmd_cnt;
-wire                    cmd_cnt_max_vld;
-
-reg             [1 : 0] cmd_init_cnt;
-
-assign cmd_cnt_max_vld = cmd_cnt == 2'b11;
-assign init_done = cmd_init_cnt == 2'b10;
+// Draw Command generate
+localparam CMD_CLEAR_SCREEN = {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
+assign cmd_cnt_max_vld = cmd_cnt == 2'b10;
+assign init_done = cmd_init_cnt == 2'b01;
 
 always @(posedge clk) begin
     if (rst | vld_start | snake_lose) begin
@@ -176,9 +180,10 @@ always @(posedge clk) begin
     if (init) begin
         cmd_init_cnt <= cmd_init_cnt + 1'b1;
         cmd_vld_reg <= 1'b1;
-        if (cmd_init_cnt == 0) begin
-            cmd_reg <= {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
-        end else begin
+        if (cmd_init_cnt == 2'b0) begin
+            cmd_reg <= CMD_CLEAR_SCREEN;
+        end 
+        else if (cmd_init_cnt == 2'b1) begin
             cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
         end
     end
@@ -189,10 +194,10 @@ always @(posedge clk) begin
     else if (~cmd_cnt_max_vld) begin
         cmd_cnt <= cmd_cnt + 1'b1;
         cmd_vld_reg <= 1'b1;
-        if (cmd_cnt == 0) begin
+        if (cmd_cnt == 2'b0) begin
             cmd_reg <= {4'h0, snake_headx, snake_heady, 8'h0f, 10'b0};
         end
-        else if (cmd_cnt == 1) begin
+        else if (cmd_cnt == 2'b1) begin
             cmd_reg <= {4'h0, snake_tailx, snake_taily, 8'hff, 10'b0};
         end
     end

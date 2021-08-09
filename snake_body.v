@@ -175,7 +175,7 @@ assign score = ({preyx, preyy} == {headx, heady}) & valid_pp[0];
 assign snake_score = score;
 
 always @(posedge clk) begin
-    if (rst) begin
+    if (rst | init) begin
         lose <= 1'b0;
     end
     else if (ff_wcheck_res & ff_wcheck_vld) begin

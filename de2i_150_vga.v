@@ -60,14 +60,23 @@ wire  [9:0] recon_VGA_B;
 
 wire clk;
 wire rst;
+wire vga_rst_n;
+
+// Detect key press
+wire [3:0] key;
+edge_detect key_right   (clk, 2'b10, KEY[0], key[0]);
+edge_detect key_down    (clk, 2'b10, KEY[1], key[1]);
+edge_detect key_up      (clk, 2'b10, KEY[2], key[2]);
+edge_detect key_left    (clk, 2'b10, KEY[3], key[3]);
 
 assign clk = CLOCK_50;
-assign rst = SW[1];
+assign rst = SW[1] & key[0];
+assign vga_rst_n = (~SW[0]) | KEY[0];
 
 Reset_Delay r0	(
     .iCLK(clk),
     .oRESET(DLY_RST),
-    .iRST_n(SW[0])
+    .iRST_n(vga_rst_n)
     );
 
 reg vga_clk_reg;
@@ -99,13 +108,6 @@ vga_controller_mod u4(
     .g_data     (VGA_G),
     .r_data     (VGA_R)
     );
-
-// Detect key press
-wire [3:0] key;
-edge_detect key_right   (clk, 2'b10, KEY[0], key[0]);
-edge_detect key_down    (clk, 2'b10, KEY[1], key[1]);
-edge_detect key_up      (clk, 2'b10, KEY[2], key[2]);
-edge_detect key_left    (clk, 2'b10, KEY[3], key[3]);
 
 //// Display a superpixel move left to right, top to down
 reg [H_LOGIC_WIDTH - 1 : 0] oldx_logic;
@@ -206,7 +208,7 @@ always @(posedge clk) begin
         ff_block <= 0;
     end
     else if (ff_rden) begin
-        ff_block <= ff_rden;
+        ff_block <= 1'b1;
     end
 end
 
