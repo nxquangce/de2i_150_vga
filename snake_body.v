@@ -158,7 +158,7 @@ snake_fifo (
     .check_req      (ff_check_vld),
     .check_dat      (ff_check_dat),
     .check_res      (ff_check_res),
-    .check_vld      (ff_check_vld),
+    .check_vld      (ff_check_vld)
 );
 
 always @(posedge clk) begin
@@ -178,7 +178,7 @@ always @(posedge clk) begin
     if (rst | init) begin
         lose <= 1'b0;
     end
-    else if (ff_wcheck_res & ff_wcheck_vld) begin
+    else if (enb & ff_wcheck_res & ff_wcheck_vld) begin
         lose <= 1'b1;
     end
 end

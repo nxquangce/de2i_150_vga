@@ -18,6 +18,14 @@ parameter H_LOGIC_MAX       = 5'd31;
 parameter V_LOGIC_MAX       = 5'd23;
 parameter COLOR_ID_WIDTH    = 8;
 
+parameter H_PHY_MAX         = 10'd639;
+parameter V_PHY_MAX         = 9'd479;
+
+localparam SPIXEL_PHY       = (H_PHY_MAX + 1) / (H_LOGIC_MAX + 1);
+
+localparam SNAKE_H_MAX      = H_LOGIC_MAX;
+localparam SNAKE_V_MAX      = V_LOGIC_MAX - 1'b1;
+
 localparam CMD_WIDTH        = 4 + (H_LOGIC_WIDTH + V_LOGIC_WIDTH) * 2 + COLOR_ID_WIDTH; // = 32
 localparam DIRECTION_WIDTH  = 2;
 localparam DIR_UP           = 2'b00;
@@ -42,6 +50,17 @@ wire        vld;
 wire        vld_start;
 reg [3 : 0] vld_start_pp;
 
+reg         init;
+reg [2 : 0] init_pp;
+wire        init_done;
+wire        core_enb;
+
+reg [CMD_WIDTH - 1 : 0] cmd_reg;
+reg                     cmd_vld_reg;
+reg             [1 : 0] cmd_cnt;
+wire                    cmd_cnt_max_vld;
+reg             [2 : 0] cmd_init_cnt;
+
 // Update interval time = 0.25s
 assign vld = (vld_cnt == VLD_0_5HZ_CNT_MAX);
 assign vld_start = (vld_cnt == 25'b0);
@@ -58,19 +77,6 @@ always @(posedge clk) begin
     end
 end
 
-reg         init;
-reg [2 : 0] init_pp;
-wire        init_done;
-wire        core_enb;
-
-reg [CMD_WIDTH - 1 : 0] cmd_reg;
-reg                     cmd_vld_reg;
-reg             [1 : 0] cmd_cnt;
-wire                    cmd_cnt_max_vld;
-reg             [1 : 0] cmd_init_cnt;
-
-assign core_enb = enb & (~init);
-
 always @(posedge clk) begin
     if (rst) begin
         init <= 1'b1;
@@ -81,6 +87,8 @@ always @(posedge clk) begin
     init_pp[0] <= init;
     init_pp[2:1] <= init_pp[1:0];
 end
+
+assign core_enb = enb & (~init);
 
 reg [DIRECTION_WIDTH - 1 : 0] dir_detect_reg;
 reg [DIRECTION_WIDTH - 1 : 0] dir_reg;
@@ -136,8 +144,8 @@ snake_body
     .SNAKE_WIDTH       (SNAKE_WIDTH),
     .H_LOGIC_WIDTH     (H_LOGIC_WIDTH),
     .V_LOGIC_WIDTH     (V_LOGIC_WIDTH),
-    .H_LOGIC_MAX       (H_LOGIC_MAX),
-    .V_LOGIC_MAX       (V_LOGIC_MAX)
+    .H_LOGIC_MAX       (SNAKE_H_MAX),
+    .V_LOGIC_MAX       (SNAKE_V_MAX)
     )
 i_snake_body (
     .clk                (clk),
@@ -155,7 +163,14 @@ i_snake_body (
     .preyy              (preyy)
     );
 
-snake_prey i_snake_prey(
+snake_prey
+    #(
+    .H_LOGIC_WIDTH     (H_LOGIC_WIDTH),
+    .V_LOGIC_WIDTH     (V_LOGIC_WIDTH),
+    .H_LOGIC_MAX       (SNAKE_H_MAX),
+    .V_LOGIC_MAX       (SNAKE_V_MAX)
+    )
+i_snake_prey(
     .clk                (clk),
     .rst                (rst),
     .enb                (core_enb),
@@ -166,9 +181,12 @@ snake_prey i_snake_prey(
 );
 
 // Draw Command generate
-localparam CMD_CLEAR_SCREEN = {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
+localparam CMD_CLEAR_SCREEN  = {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
+localparam CMD_BORDER_LINE_0 = {4'h9, 10'b0, 9'd460, 8'h02, 1'b0};
+localparam CMD_BORDER_LINE_1 = {4'h9, H_PHY_MAX, 9'd462, 8'h02, 1'b1};
+
 assign cmd_cnt_max_vld = cmd_cnt == 2'b10;
-assign init_done = cmd_init_cnt == 2'b01;
+assign init_done = cmd_init_cnt == 3'b011;
 
 always @(posedge clk) begin
     if (rst | vld_start | snake_lose) begin
@@ -177,15 +195,17 @@ always @(posedge clk) begin
         cmd_init_cnt <= 0;
         cmd_vld_reg <= 0;
     end
-    if (init) begin
+    else if (init) begin
         cmd_init_cnt <= cmd_init_cnt + 1'b1;
         cmd_vld_reg <= 1'b1;
-        if (cmd_init_cnt == 2'b0) begin
-            cmd_reg <= CMD_CLEAR_SCREEN;
-        end 
-        else if (cmd_init_cnt == 2'b1) begin
-            cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
-        end
+
+        case (cmd_init_cnt)
+            3'b000: cmd_reg <= CMD_CLEAR_SCREEN;
+            3'b001: cmd_reg <= CMD_BORDER_LINE_0;
+            3'b010: cmd_reg <= CMD_BORDER_LINE_1;
+            3'b011: cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
+            default: cmd_reg <= cmd_reg;
+        endcase
     end
     else if (prey_vld) begin
         cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};

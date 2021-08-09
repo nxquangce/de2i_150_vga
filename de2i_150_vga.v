@@ -182,7 +182,17 @@ end
 wire [FF_DATA_WIDTH - 1 : 0] snake_cmd;
 wire                         snake_cmd_vld;
 
-snake_core snake_game(
+snake_core 
+    #(
+    .SNAKE_DEPTH_MAX     (128),
+    .SNAKE_WIDTH         (7),
+    .H_LOGIC_WIDTH       (H_LOGIC_WIDTH),
+    .V_LOGIC_WIDTH       (V_LOGIC_WIDTH),
+    .H_LOGIC_MAX         (H_LOGIC_MAX),
+    .V_LOGIC_MAX         (V_LOGIC_MAX),
+    .COLOR_ID_WIDTH      (COLOR_ID_WIDTH)
+    )
+snake_game(
     .clk        (clk),
     .rst        (rst),
     .enb        (1'b1),
@@ -202,9 +212,10 @@ wire                         ff_rden;
 wire                         ff_rvld;
 wire [FF_DATA_WIDTH - 1 : 0] ff_wdat;
 wire [FF_DATA_WIDTH - 1 : 0] ff_rdat;
+wire                         ff_unblock;
 
 always @(posedge clk) begin
-    if (rst | pixel_done | rect_done) begin
+    if (rst | ff_unblock) begin
         ff_block <= 0;
     end
     else if (ff_rden) begin
@@ -262,8 +273,7 @@ draw_superpixel
     .PIXEL_X_MAX       (H_PHY_MAX),
     .PIXEL_Y_MAX       (V_PHY_MAX)
     )
-pixel
-    (
+pixel (
     .clk        (clk),
     .rst        (rst),
     // USER IF
@@ -310,8 +320,7 @@ draw_rectangle_sp
     .PIXEL_X_MAX       (H_PHY_MAX),
     .PIXEL_Y_MAX       (V_PHY_MAX)
     )
-rectangle_sp
-    (
+rectangle_sp (
     .clk                (clk),
     .rst                (rst),
     // USER IF
@@ -328,8 +337,56 @@ rectangle_sp
     .owren              (rect_wren)
     );
 
-assign addr = pixel_addr | rect_addr;
-assign data = pixel_data | rect_data;
-assign wren = pixel_wren | rect_wren;
+wire    [H_PHY_WIDTH - 1 : 0] rect_px_x0_physic;
+wire    [V_PHY_WIDTH - 1 : 0] rect_px_y0_physic;
+wire    [H_PHY_WIDTH - 1 : 0] rect_px_x1_physic;
+wire    [V_PHY_WIDTH - 1 : 0] rect_px_y1_physic;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_px_color;
+wire                  [1 : 0] rect_px_mode;
+wire                          rect_px_vld;
+wire                          rect_px_half;
+wire                          rect_px_done;
+
+wire [VGA_ADDR_WIDTH - 1 : 0] rect_px_addr;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_px_data;
+wire                          rect_px_wren;
+
+assign rect_px_x0_physic = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - H_PHY_WIDTH];
+assign rect_px_y0_physic = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH : FF_DATA_WIDTH - 4 - H_PHY_WIDTH - V_PHY_WIDTH];
+assign rect_px_color     = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH - V_PHY_WIDTH : 1];
+assign rect_px_vld       = (ff_rdat[FF_DATA_WIDTH - 1 : FF_DATA_WIDTH - 4] == 4'h9) & ff_rvld;
+assign rect_px_mode      = {1'b0, ff_rdat[0]};
+assign rect_px_half      = (~ff_rdat[0]) & rect_px_vld;
+
+draw_rectangle
+    #(
+    .PIXEL_X_WIDTH      (H_PHY_WIDTH),
+    .PIXEL_Y_WIDTH      (V_PHY_WIDTH),
+    .PIXEL_X_MAX        (H_PHY_MAX),
+    .PIXEL_Y_MAX        (V_PHY_MAX)
+    )
+rectangle (
+    .clk                (clk),
+    .rst                (rst),
+    // USER IF
+    .x0                 (rect_px_x0_physic),
+    .y0                 (rect_px_y0_physic),
+    .x1                 (rect_px_x0_physic),
+    .y1                 (rect_px_y0_physic),
+    .mode               (rect_px_mode),
+    .idata              (rect_px_color),
+    .idata_vld          (rect_px_vld),
+    .odone              (rect_px_done),
+    // VGA RAM IF
+    .oaddr              (rect_px_addr),
+    .odata              (rect_px_data),
+    .owren              (rect_px_wren)
+    );
+
+assign ff_unblock = pixel_done | rect_done | rect_px_done | rect_px_half;
+
+assign addr = pixel_addr | rect_addr | rect_px_addr;
+assign data = pixel_data | rect_data | rect_px_data;
+assign wren = pixel_wren | rect_wren | rect_px_wren;
 
 endmodule 

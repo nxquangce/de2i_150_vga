@@ -24,15 +24,6 @@ output                      prey_vld;
 reg init;
 reg [15 : 0] random_reg;
 
-// always @(posedge clk) begin
-//     if (rst) begin
-//         init <= 1;
-//     end
-//     else if (valid) begin
-//         init <= 0;
-//     end
-// end
-
 always @(posedge clk) begin
     if (rst) begin
         random_reg <= 16'hfff0;
