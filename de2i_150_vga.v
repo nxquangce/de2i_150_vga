@@ -387,7 +387,7 @@ wire    [H_PHY_WIDTH - 1 : 0] char_px_x_physic;
 wire    [V_PHY_WIDTH - 1 : 0] char_px_y_physic;
 wire [COLOR_ID_WIDTH - 1 : 0] char_px_color_fg;
 wire [COLOR_ID_WIDTH - 1 : 0] char_px_color_bg;
-wire                  [8 : 0] char_px_code;
+wire                  [7 : 0] char_px_code;
 wire                  [3 : 0] char_px_size;
 wire                  [1 : 0] char_px_mode;
 wire                          char_px_vld;

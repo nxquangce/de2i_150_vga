@@ -38,8 +38,8 @@ output [VGA_ADDR_WIDTH - 1 : 0] oaddr;
 output [COLOR_ID_WIDTH - 1 : 0] odata;
 output                          owren;
 
-reg [PIXEL_X_WIDTH - 1 : 0] x_logic;
-reg [PIXEL_Y_WIDTH - 1 : 0] y_logic;
+reg [SPIXEL_X_WIDTH - 1 : 0] x_logic;
+reg [SPIXEL_Y_WIDTH - 1 : 0] y_logic;
 
 wire [PIXEL_X_WIDTH - 1 : 0] tlx_physic;
 wire [PIXEL_Y_WIDTH - 1 : 0] tly_physic;

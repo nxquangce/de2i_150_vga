@@ -137,6 +137,7 @@ assign wcheck_vld = (wcheck_res | wcheck_ptr == (wr_ptr - 2'b10)) & wcheck_state
 
 // Check
 reg                      check_state;
+reg [DATA_WIDTH - 1 : 0] check_dat_reg;
 reg [DATA_WIDTH - 1 : 0] rdat_check;
 reg [ADDR_WIDTH     : 0] check_ptr;
 
@@ -144,10 +145,12 @@ always @(posedge clk) begin
     if (rst | check_vld) begin
         check_ptr <= 0;
         check_state <= 0;
+        check_dat_reg <= 0;
     end
     else if (check_req) begin
         check_state <= 1'b1;
         check_ptr <= rd_ptr;
+        check_dat_reg <= check_dat;
     end
     else if (check_state) begin
         check_ptr <= check_ptr + 1'b1;
@@ -163,7 +166,7 @@ always @(posedge clk) begin
     end
 end
 
-assign check_res = (check_dat == rdat_check);
+assign check_res = (check_dat_reg == rdat_check);
 assign check_vld = (check_res | check_ptr == (wr_ptr - 1'b1)) & check_state;
 
 endmodule

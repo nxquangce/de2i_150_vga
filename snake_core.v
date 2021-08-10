@@ -126,6 +126,13 @@ wire [V_LOGIC_WIDTH - 1 : 0] snake_taily;
 wire [H_LOGIC_WIDTH - 1 : 0] preyx;
 wire [V_LOGIC_WIDTH - 1 : 0] preyy;
 wire                         prey_vld;
+wire                         prey_res;
+wire                         prey_res_vld;
+wire                         prey_bad;
+wire                         prey_good;
+wire                         prey_gen_vld;
+reg                          prey_good_cache;
+reg                          prey_good_clear;
 
 reg [SNAKE_WIDTH - 1 : 0] user_score;
 wire      [3 * 4 - 1 : 0] user_score_bcd;
@@ -173,8 +180,24 @@ i_snake_body (
     .snake_tailx        (snake_tailx),
     .snake_taily        (snake_taily),
     .preyx              (preyx),
-    .preyy              (preyy)
+    .preyy              (preyy),
+    .prey_vld           (prey_vld),
+    .prey_res           (prey_res),
+    .prey_res_vld       (prey_res_vld)
     );
+
+assign prey_bad  =   prey_res  & prey_res_vld;
+assign prey_good = (~prey_res) & prey_res_vld;
+assign prey_gen_vld = snake_score | prey_bad;
+
+always @(posedge clk) begin
+    if (rst | prey_good_clear) begin
+        prey_good_cache <= 1'b0;
+    end
+    else if (prey_good) begin
+        prey_good_cache <= 1'b1;
+    end
+end
 
 snake_prey
     #(
@@ -187,7 +210,7 @@ i_snake_prey(
     .clk                (clk),
     .rst                (rst),
     .enb                (core_enb),
-    .valid              (snake_score),
+    .valid              (prey_gen_vld),
     .preyx              (preyx),
     .preyy              (preyy),
     .prey_vld           (prey_vld)
@@ -220,6 +243,7 @@ always @(posedge clk) begin
         cmd_cnt <= 0;
         cmd_init_cnt <= 0;
         cmd_vld_reg <= 0;
+        prey_good_clear <= 0;
     end
     else if (init) begin
         cmd_init_cnt <= cmd_init_cnt + 1'b1;
@@ -239,10 +263,6 @@ always @(posedge clk) begin
             default: cmd_reg <= cmd_reg;
         endcase
     end
-    else if (prey_vld) begin
-        cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
-        cmd_vld_reg <= 1'b1;
-    end
     else if (~cmd_cnt_max_vld) begin
         cmd_cnt <= cmd_cnt + 1'b1;
         cmd_vld_reg <= 1'b1;
@@ -261,8 +281,14 @@ always @(posedge clk) begin
             end
         endcase
     end
+    else if (prey_good_cache) begin
+        prey_good_clear <= 1'b1;
+        cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
+        cmd_vld_reg <= 1'b1;
+    end
     else begin
         cmd_vld_reg <= 1'b0;
+        prey_good_clear <= 1'b0;
     end
 end
 

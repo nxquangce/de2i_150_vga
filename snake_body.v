@@ -11,7 +11,10 @@ module snake_body(
     snake_tailx,
     snake_taily,
     preyx,
-    preyy
+    preyy,
+    prey_vld,
+    prey_res,
+    prey_res_vld
 );
 
 parameter SNAKE_DEPTH_MAX   = 128;
@@ -43,6 +46,9 @@ output  [H_LOGIC_WIDTH - 1 : 0] snake_tailx;
 output  [V_LOGIC_WIDTH - 1 : 0] snake_taily;
 input   [H_LOGIC_WIDTH - 1 : 0] preyx;
 input   [V_LOGIC_WIDTH - 1 : 0] preyy;
+input                           prey_vld;
+output                          prey_res;
+output                          prey_res_vld;
 
 
 reg [SNAKE_DEPTH_MAX - 1 : 0] body;
@@ -109,6 +115,7 @@ wire [FF_DATA_WIDTH - 1 : 0] ff_rdat;
 wire [FF_DATA_WIDTH - 1 : 0] ff_check_dat;
 wire                         ff_check_res;
 wire                         ff_check_vld;
+wire                         ff_check_req;
 wire                         ff_wcheck_res;
 wire                         ff_wcheck_vld;
 
@@ -137,6 +144,9 @@ assign ff_wren = (enb & valid_pp[0]) | init;
 assign ff_wdat = (init) ? ff_wdat_init : {headx, heady};
 assign ff_rden = enb & (~score) & valid_pp[0];
 
+assign ff_check_req = prey_vld;
+assign ff_check_dat = {preyx, preyy};
+
 fifo_wcheck 
     #(
     .ADDR_WIDTH (SNAKE_WIDTH),
@@ -155,11 +165,14 @@ snake_fifo (
     .empty          (ff_empty),
     .wcheck_res     (ff_wcheck_res),
     .wcheck_vld     (ff_wcheck_vld),
-    .check_req      (ff_check_vld),
+    .check_req      (ff_check_req),
     .check_dat      (ff_check_dat),
     .check_res      (ff_check_res),
     .check_vld      (ff_check_vld)
 );
+
+assign prey_res     = ff_check_res;
+assign prey_res_vld = ff_check_vld;
 
 always @(posedge clk) begin
     if (rst | init) begin
