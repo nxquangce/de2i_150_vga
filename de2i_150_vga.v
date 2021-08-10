@@ -195,7 +195,7 @@ snake_core
 snake_game(
     .clk        (clk),
     .rst        (rst),
-    .enb        (1'b1),
+    .enb        (~ff_prefull),
     .up         (key[2]),
     .down       (key[1]),
     .left       (key[3]),
@@ -206,6 +206,7 @@ snake_game(
 
 reg                          ff_block;
 wire                         ff_full;
+wire                         ff_prefull;
 wire                         ff_empty;
 wire                         ff_wren;
 wire                         ff_rden;
@@ -229,9 +230,9 @@ assign ff_rden = ~(ff_empty | ff_block);
 
 fifo 
     #(
-    .ADDR_WIDTH (4),
+    .ADDR_WIDTH (6),
     .DATA_WIDTH (FF_DATA_WIDTH),
-    .FIFO_DEPTH (16)
+    .FIFO_DEPTH (64)
     )
 i_fifo(
     .clk        (clk),
@@ -242,6 +243,7 @@ i_fifo(
     .rdat       (ff_rdat),
     .rvld       (ff_rvld),
     .full       (ff_full),
+    .prefull    (ff_prefull),
     .empty      (ff_empty)
 );
 

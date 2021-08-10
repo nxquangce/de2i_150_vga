@@ -7,6 +7,7 @@ module fifo(
     rdat,
     rvld,
     full,
+    prefull,
     empty
 );
 
@@ -22,6 +23,7 @@ input                       rden;
 output [DATA_WIDTH - 1 : 0] rdat;
 output                      rvld;
 output                      full;
+output                      prefull;
 output                      empty;
 
 reg [DATA_WIDTH - 1 : 0] ff_mem [FIFO_DEPTH - 1 : 0];
@@ -41,6 +43,7 @@ assign wr_addr = wr_ptr[ADDR_WIDTH - 1 : 0];
 
 // FIFO full, empty
 assign full  = (wr_ptr[ADDR_WIDTH] != rd_ptr[ADDR_WIDTH]) && (wr_addr == rd_addr);
+assign prefull = data_counter > FIFO_DEPTH - 4;
 assign empty = (wr_ptr == rd_ptr);
 
 // Enable to prevent write when full, read when empty

@@ -234,6 +234,31 @@ localparam CMD_POINT_ZERO1_1 = {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_S
 localparam CMD_POINT_ZERO2_0 = {4'ha, SCORE2_POSX, SCOREX_POSY, 8'h30, 1'b0};
 localparam CMD_POINT_ZERO2_1 = {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_SIZE, 8'h1};
 
+wire [CMD_WIDTH - 1 : 0] cmd_startscren;
+wire                     cmd_startscren_vld;
+reg startscreen_enb;
+
+always @(posedge clk) begin
+    if (rst) begin
+        startscreen_enb <= 1;
+    end
+    else if (right) begin
+        startscreen_enb <= 0;
+    end
+end
+
+snake_startscreen i_snake_startscreen(
+    .clk        (clk),
+    .rst        (rst),
+    .up         (up),
+    .down       (down),
+    .left       (left),
+    .right      (right),
+    .enb        (startscreen_enb & enb),
+    .cmd        (cmd_startscren),
+    .cmd_vld    (cmd_startscren_vld)
+);
+
 assign cmd_cnt_max_vld = cmd_cnt == 4'h8;
 assign init_done = cmd_init_cnt == 4'h9;
 
@@ -244,6 +269,10 @@ always @(posedge clk) begin
         cmd_init_cnt <= 0;
         cmd_vld_reg <= 0;
         prey_good_clear <= 0;
+    end
+    else if (startscreen_enb) begin
+        cmd_reg <= cmd_startscren;
+        cmd_vld_reg <= cmd_startscren_vld;
     end
     else if (init) begin
         cmd_init_cnt <= cmd_init_cnt + 1'b1;
