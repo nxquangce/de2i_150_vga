@@ -7,7 +7,8 @@ module draw_char(
     code,
     size,
     mode,
-    idata,
+    idata_bg,
+    idata_fg,
     idata_vld,
     odone,
     // VGA RAM IF
@@ -32,7 +33,8 @@ input   [PIXEL_Y_WIDTH - 1 : 0] y;
 input [CHAR_CODE_WIDTH - 1 : 0] code;
 input                     [3:0] size;
 input                   [1 : 0] mode;
-input  [COLOR_ID_WIDTH - 1 : 0] idata;
+input  [COLOR_ID_WIDTH - 1 : 0] idata_bg;
+input  [COLOR_ID_WIDTH - 1 : 0] idata_fg;
 input                           idata_vld;
 output                          odone;
 output [VGA_ADDR_WIDTH - 1 : 0] oaddr;
@@ -48,7 +50,8 @@ reg [PIXEL_Y_WIDTH - 1 : 0] y_physic;
 
 reg [CHAR_CODE_WIDTH - 1 : 0] char_reg;
 reg                     [3:0] size_reg;
-reg  [COLOR_ID_WIDTH - 1 : 0] data;
+reg  [COLOR_ID_WIDTH - 1 : 0] data_bg;
+reg  [COLOR_ID_WIDTH - 1 : 0] data_fg;
 reg                           wren;
 reg                           vld_start;
 reg                           done_reg;
@@ -59,13 +62,15 @@ reg [PIXEL_X_WIDTH - 1 : 0] posx [4+1:0];
 reg [PIXEL_Y_WIDTH - 1 : 0] posy [8+1:0];
 reg [4:0] map [8:0];
 reg [4:0] active [8:0];
+reg fg_valid;
 
 always @(posedge clk) begin
     if (rst) begin
         vld_start <= 0;
         char_reg <= 0;
         size_reg <= 0;
-        data <= 0;
+        data_bg <= 0;
+        data_fg <= 0;
         x0_physic <= 0;
         y0_physic <= 0;
     end
@@ -79,14 +84,16 @@ always @(posedge clk) begin
             end
             2'b01: begin
                 vld_start <= 1;
-                data <= idata;
+                data_fg <= idata_fg;
+                data_bg <= idata_bg;
                 size_reg <= size;
             end
             default: begin
                 vld_start <= 1;
                 char_reg <= code;
                 size_reg <= size;
-                data <= idata;
+                data_fg <= idata_fg;
+                data_bg <= idata_bg;
                 x0_physic <= x;
                 y0_physic <= y;
             end
@@ -126,17 +133,19 @@ always @(*) begin
                 & ((y_physic >= posy[i]) & (y_physic < posy[i + 1]));
         end
     end
-    wren = |{active[0], active[1], active[2], active[3], active[4], active[5], active[6], active[7], active[8]};
+    fg_valid = |{active[0], active[1], active[2], active[3], active[4], active[5], active[6], active[7], active[8]};
 end
 
 always @(posedge clk) begin
     if (rst | done) begin
         x_physic <= 0;
         y_physic <= 0;
+        wren     <= 0;
     end
     else if (vld_start) begin
         x_physic <= x0_physic;
         y_physic <= y0_physic;
+        wren     <= 1;
     end
     else if (run) begin
         x_physic <= (x_physic == x1_physic) ? x0_physic : x_physic + 1'b1;
@@ -160,7 +169,7 @@ assign done = (x_physic == (x1_physic)) && (y_physic == y1_physic) & run;
 assign odone = done_reg;
 
 assign oaddr = (wren) ? addr : 0;
-assign odata = (wren) ? data : 0;
+assign odata = (wren) ? (fg_valid) ? data_fg : data_bg : 0;
 assign owren = wren;
 
 // Character maps
@@ -242,11 +251,11 @@ always @(posedge clk) begin
         end
         8'h34: begin // 4
             map[0] <= 5'b00010;
-            map[1] <= 5'b10110;
-            map[2] <= 5'b10110;
+            map[1] <= 5'b00110;
+            map[2] <= 5'b00110;
             map[3] <= 5'b01010;
             map[4] <= 5'b01010;
-            map[5] <= 5'b10110;
+            map[5] <= 5'b10010;
             map[6] <= 5'b11111;
             map[7] <= 5'b00010;
             map[8] <= 5'b00010;

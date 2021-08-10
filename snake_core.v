@@ -57,7 +57,7 @@ wire        core_enb;
 
 reg [CMD_WIDTH - 1 : 0] cmd_reg;
 reg                     cmd_vld_reg;
-reg             [1 : 0] cmd_cnt;
+reg             [3 : 0] cmd_cnt;
 wire                    cmd_cnt_max_vld;
 reg             [3 : 0] cmd_init_cnt;
 
@@ -127,7 +127,9 @@ wire [H_LOGIC_WIDTH - 1 : 0] preyx;
 wire [V_LOGIC_WIDTH - 1 : 0] preyy;
 wire                         prey_vld;
 
-reg user_score;
+reg [SNAKE_WIDTH - 1 : 0] user_score;
+wire      [3 * 4 - 1 : 0] user_score_bcd;
+wire              [7 : 0] user_score_char [2 : 0];
 
 always @(posedge clk) begin
     if (rst) begin
@@ -137,6 +139,17 @@ always @(posedge clk) begin
         user_score <= user_score + 1'b1;
     end
 end
+
+bin2bcd 
+    #(
+    .BIT_WIDTH  (SNAKE_WIDTH),
+    .NUM_BCD    (3)
+    )
+user_score_bin2bcd(user_score, user_score_bcd);
+
+bcd2ascii score_char0(user_score_bcd[3:0], user_score_char[0]);
+bcd2ascii score_char1(user_score_bcd[7:4], user_score_char[1]);
+bcd2ascii score_char2(user_score_bcd[11:8], user_score_char[2]);
 
 snake_body
     #(
@@ -181,18 +194,25 @@ i_snake_prey(
 );
 
 // Draw Command generate
+localparam SCOREX_POSY       = 9'd450;
+localparam SCORE0_POSX       = 10'd619;
+localparam SCORE1_POSX       = SCORE0_POSX - 10'd20;
+localparam SCORE2_POSX       = SCORE1_POSX - 10'd20;
+localparam SCOREX_COLOR_FG   = 8'h00;
+localparam SCOREX_COLOR_BG   = 8'hff;
+localparam SCOREX_SIZE       = 4'h1;
 localparam CMD_CLEAR_SCREEN  = {4'h1, 5'b0, 5'b0, H_LOGIC_MAX, V_LOGIC_MAX, 8'hff};
 localparam CMD_BORDER_LINE_0 = {4'h9, 10'b0, 9'd440, 8'h02, 1'b0};
 localparam CMD_BORDER_LINE_1 = {4'h9, H_PHY_MAX, 9'd442, 8'h02, 1'b1};
-localparam CMD_POINT_ZERO0_0 = {4'ha, 10'd619, 9'd450, 8'h30, 1'b0};
-localparam CMD_POINT_ZERO0_1 = {4'ha, 8'h00, 4'h1, 16'h1};
-localparam CMD_POINT_ZERO1_0 = {4'ha, 10'd599, 9'd450, 8'h30, 1'b0};
-localparam CMD_POINT_ZERO1_1 = {4'ha, 8'h00, 4'h1, 16'h1};
-localparam CMD_POINT_ZERO2_0 = {4'ha, 10'd579, 9'd450, 8'h30, 1'b0};
-localparam CMD_POINT_ZERO2_1 = {4'ha, 8'h00, 4'h1, 16'h1};
+localparam CMD_POINT_ZERO0_0 = {4'ha, SCORE0_POSX, SCOREX_POSY, 8'h30, 1'b0};
+localparam CMD_POINT_ZERO0_1 = {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_SIZE, 8'h1};
+localparam CMD_POINT_ZERO1_0 = {4'ha, SCORE1_POSX, SCOREX_POSY, 8'h30, 1'b0};
+localparam CMD_POINT_ZERO1_1 = {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_SIZE, 8'h1};
+localparam CMD_POINT_ZERO2_0 = {4'ha, SCORE2_POSX, SCOREX_POSY, 8'h30, 1'b0};
+localparam CMD_POINT_ZERO2_1 = {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_SIZE, 8'h1};
 
-assign cmd_cnt_max_vld = cmd_cnt == 2'b10;
-assign init_done = cmd_init_cnt == 4'b1001;
+assign cmd_cnt_max_vld = cmd_cnt == 4'h8;
+assign init_done = cmd_init_cnt == 4'h9;
 
 always @(posedge clk) begin
     if (rst | vld_start | snake_lose) begin
@@ -206,16 +226,16 @@ always @(posedge clk) begin
         cmd_vld_reg <= 1'b1;
 
         case (cmd_init_cnt)
-            4'b0000: cmd_reg <= CMD_CLEAR_SCREEN;
-            4'b0001: cmd_reg <= CMD_BORDER_LINE_0;
-            4'b0010: cmd_reg <= CMD_BORDER_LINE_1;
-            4'b0011: cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
-            4'b0100: cmd_reg <= CMD_POINT_ZERO0_0;
-            4'b0101: cmd_reg <= CMD_POINT_ZERO0_1;
-            4'b0110: cmd_reg <= CMD_POINT_ZERO1_0;
-            4'b0111: cmd_reg <= CMD_POINT_ZERO1_1;
-            4'b1000: cmd_reg <= CMD_POINT_ZERO2_0;
-            4'b1001: cmd_reg <= CMD_POINT_ZERO2_1;
+            4'h0: cmd_reg <= CMD_CLEAR_SCREEN;
+            4'h1: cmd_reg <= CMD_BORDER_LINE_0;
+            4'h2: cmd_reg <= CMD_BORDER_LINE_1;
+            4'h3: cmd_reg <= {4'h0, preyx, preyy, 8'h3c, 10'b0};
+            4'h4: cmd_reg <= CMD_POINT_ZERO0_0;
+            4'h5: cmd_reg <= CMD_POINT_ZERO0_1;
+            4'h6: cmd_reg <= CMD_POINT_ZERO1_0;
+            4'h7: cmd_reg <= CMD_POINT_ZERO1_1;
+            4'h8: cmd_reg <= CMD_POINT_ZERO2_0;
+            4'h9: cmd_reg <= CMD_POINT_ZERO2_1;
             default: cmd_reg <= cmd_reg;
         endcase
     end
@@ -226,12 +246,20 @@ always @(posedge clk) begin
     else if (~cmd_cnt_max_vld) begin
         cmd_cnt <= cmd_cnt + 1'b1;
         cmd_vld_reg <= 1'b1;
-        if (cmd_cnt == 2'b0) begin
-            cmd_reg <= {4'h0, snake_headx, snake_heady, 8'h0f, 10'b0};
-        end
-        else if (cmd_cnt == 2'b1) begin
-            cmd_reg <= {4'h0, snake_tailx, snake_taily, 8'hff, 10'b0};
-        end
+
+        case (cmd_cnt)
+            4'h0: cmd_reg <= {4'h0, snake_headx, snake_heady, 8'h0f, 10'b0};
+            4'h1: cmd_reg <= {4'h0, snake_tailx, snake_taily, 8'hff, 10'b0};
+            4'h2: cmd_reg <= {4'ha, SCORE0_POSX, SCOREX_POSY, user_score_char[0], 1'b0};
+            4'h3: cmd_reg <= {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_SIZE, 8'h1};
+            4'h4: cmd_reg <= {4'ha, SCORE1_POSX, SCOREX_POSY, user_score_char[1], 1'b0};
+            4'h5: cmd_reg <= {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_SIZE, 8'h1};
+            4'h6: cmd_reg <= {4'ha, SCORE2_POSX, SCOREX_POSY, user_score_char[2], 1'b0};
+            4'h7: cmd_reg <= {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_SIZE, 8'h1};
+            default: begin
+                cmd_reg <= cmd_reg;
+            end
+        endcase
     end
     else begin
         cmd_vld_reg <= 1'b0;

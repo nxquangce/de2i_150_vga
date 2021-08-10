@@ -26,10 +26,10 @@ output reg [7:0] g_data;
 output reg [7:0] r_data;                        
 ///////// ////                     
 reg [18:0] ADDR;
-reg [23:0] bgr_data;
+reg [23:0] rgb_data;
 wire VGA_CLK_n;
 wire [7:0] index;
-wire [23:0] bgr_data_raw;
+wire [23:0] rgb_data_raw;
 wire cBLANK_n,cHS,cVS,rst;
 ////
 assign rst = ~iRST_n;
@@ -67,11 +67,11 @@ vgaram2p (
 img_index	img_index_inst (
 	.address    (index),
 	.clock      (iVGA_CLK),
-	.q          (bgr_data_raw)
+	.q          (rgb_data_raw)
 	);	
 //////
 //////latch valid data at falling edge;
-always@(posedge VGA_CLK_n) bgr_data <= bgr_data_raw;
+always@(posedge VGA_CLK_n) rgb_data <= rgb_data_raw;
 
 
 always@(posedge VGA_CLK_n or negedge iRST_n)
@@ -84,16 +84,16 @@ begin
 		end
 	else
 		begin
-			b_data <= bgr_data[23:16];
-			g_data <= bgr_data[15:8];
-			r_data <= bgr_data[7:0];
+			r_data <= rgb_data[23:16];
+			g_data <= rgb_data[15:8];
+			b_data <= rgb_data[7:0];
 		end
 
 end
 
-//assign b_data = bgr_data[23:16];
-//assign g_data = bgr_data[15:8];
-//assign r_data = bgr_data[7:0];
+//assign r_data = rgb_data[23:16];
+//assign g_data = rgb_data[15:8];
+//assign b_data = rgb_data[7:0];
 ///////////////////
 //////Delay the iHD, iVD,iDEN for one clock cycle;
 //always@(negedge iVGA_CLK)

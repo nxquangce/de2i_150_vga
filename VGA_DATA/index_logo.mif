@@ -6,7 +6,7 @@ DATA_RADIX = HEX;
 
 CONTENT BEGIN
 0:000000;
-1:ffffff;
+1:000040;
 2:e4ac64;
 3:c48c4c;
 4:ac7c3c;
@@ -260,5 +260,5 @@ fb:353840;
 fc:161820;
 fd:2327e3;
 fe:010101;
-ff:c5d0d0;
+ff:ffffff;
 END;

@@ -385,7 +385,8 @@ rectangle (
 
 wire    [H_PHY_WIDTH - 1 : 0] char_px_x_physic;
 wire    [V_PHY_WIDTH - 1 : 0] char_px_y_physic;
-wire [COLOR_ID_WIDTH - 1 : 0] char_px_color;
+wire [COLOR_ID_WIDTH - 1 : 0] char_px_color_fg;
+wire [COLOR_ID_WIDTH - 1 : 0] char_px_color_bg;
 wire                  [8 : 0] char_px_code;
 wire                  [3 : 0] char_px_size;
 wire                  [1 : 0] char_px_mode;
@@ -400,8 +401,9 @@ wire                          char_px_wren;
 assign char_px_x_physic = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - H_PHY_WIDTH];
 assign char_px_y_physic = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH : FF_DATA_WIDTH - 4 - H_PHY_WIDTH - V_PHY_WIDTH];
 assign char_px_code     = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH - V_PHY_WIDTH : 1];
-assign char_px_color    = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH];
-assign char_px_size     = ff_rdat[FF_DATA_WIDTH - 5 - COLOR_ID_WIDTH : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH - 4];
+assign char_px_color_fg = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH];
+assign char_px_color_bg = ff_rdat[FF_DATA_WIDTH - 5 - COLOR_ID_WIDTH : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH * 2];
+assign char_px_size     = ff_rdat[FF_DATA_WIDTH - 5 - COLOR_ID_WIDTH * 2 : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH * 2 - 4];
 assign char_px_vld      = (ff_rdat[FF_DATA_WIDTH - 1 : FF_DATA_WIDTH - 4] == 4'ha) & ff_rvld;
 assign char_px_mode     = {1'b0, ff_rdat[0]};
 assign char_px_half     = (~ff_rdat[0]) & char_px_vld;
@@ -415,7 +417,8 @@ draw_char char(
     .code               (char_px_code),
     .size               (char_px_size),
     .mode               (char_px_mode),
-    .idata              (char_px_color),
+    .idata_fg           (char_px_color_fg),
+    .idata_bg           (char_px_color_bg),
     .idata_vld          (char_px_vld),
     .odone              (char_px_done),
     // VGA RAM IF
