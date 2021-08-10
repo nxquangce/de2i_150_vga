@@ -1,5 +1,6 @@
 module de2i_150_vga(
     CLOCK_50,
+    SW,
     KEY,
     VGA_B,
     VGA_BLANK_N,
@@ -27,6 +28,7 @@ parameter V_PHY_MAX       = 9'd479;
 parameter COLOR_ID_WIDTH   = 8;
 
 input        CLOCK_50;
+input [17:0] SW;
 input  [3:0] KEY;
 output [7:0] VGA_B;
 output       VGA_BLANK_N;
@@ -58,14 +60,23 @@ wire  [9:0] recon_VGA_B;
 
 wire clk;
 wire rst;
+wire vga_rst_n;
+
+// Detect key press
+wire [3:0] key;
+edge_detect key_right   (clk, 2'b10, KEY[0], key[0]);
+edge_detect key_down    (clk, 2'b10, KEY[1], key[1]);
+edge_detect key_up      (clk, 2'b10, KEY[2], key[2]);
+edge_detect key_left    (clk, 2'b10, KEY[3], key[3]);
 
 assign clk = CLOCK_50;
-assign rst = ~DLY_RST;
+assign rst = SW[1] & key[0];
+assign vga_rst_n = (~SW[0]) | KEY[0];
 
 Reset_Delay r0	(
     .iCLK(clk),
     .oRESET(DLY_RST),
-    .iRST_n(KEY[0]) 	
+    .iRST_n(vga_rst_n)
     );
 
 reg vga_clk_reg;
@@ -113,24 +124,27 @@ localparam VLD_0_5HZ_CNT_MAX = 25'd12499999;
 reg  [24:0] vld_cnt;
 wire        vld;
 wire        vld_start;
+reg [3 : 0] vld_start_pp;
 
 // Update interval time = 0.5s
 assign vld = (vld_cnt == VLD_1HZ_CNT_MAX);
 assign vld_start = (vld_cnt == 25'b0);
+
 always @(posedge clk) begin
-    if (!DLY_RST) begin
+    if (rst) begin
         vld_cnt <= 0;
+        vld_start_pp <= 0;
     end
     else begin
         vld_cnt <= (vld) ? 0 : vld_cnt + 1'b1;
+        vld_start_pp[0] <= vld_start;
+        vld_start_pp[3 : 1] <= vld_start_pp[2 : 0];
     end
 end
 
 // Update superpixel position
-reg init;
-
 always @(posedge clk) begin
-    if (!DLY_RST) begin
+    if (rst) begin
         x_logic <= H_LOGIC_MAX;
         y_logic <= V_LOGIC_MAX;
         oldx_logic <= 0;
@@ -140,32 +154,115 @@ always @(posedge clk) begin
         x_logic <= (x_logic == H_LOGIC_MAX) ? 0 : x_logic + 1'b1;
         y_logic <= ((y_logic == V_LOGIC_MAX) && (x_logic == H_LOGIC_MAX)) ? 0 : 
                    (x_logic == H_LOGIC_MAX) ? y_logic + 1'b1 : y_logic;
-        // x_logic <= 1;
-        // y_logic <= 1;
 
         oldx_logic <= x_logic;
         oldy_logic <= y_logic;
     end
 end
 
-// Update ram
-reg run;
-// reg srun;
-wire done;
-wire [H_PHY_WIDTH - 1 : 0] tlx_physic;
-wire [V_PHY_WIDTH - 1 : 0] tly_physic;
-wire [H_PHY_WIDTH - 1 : 0] brx_physic;
-wire [V_PHY_WIDTH - 1 : 0] bry_physic;
-wire [H_PHY_WIDTH - 1 : 0] oldtlx_physic;
-wire [V_PHY_WIDTH - 1 : 0] oldtly_physic;
-wire [H_PHY_WIDTH - 1 : 0] oldbrx_physic;
-wire [V_PHY_WIDTH - 1 : 0] oldbry_physic;
+localparam FF_DATA_WIDTH = 4 + (H_LOGIC_WIDTH + V_LOGIC_WIDTH) * 2 + COLOR_ID_WIDTH; // = 32
+reg [FF_DATA_WIDTH - 1 : 0] cmd;
 
+always @(posedge clk) begin
+    if (rst) begin
+        cmd <= 0;
+    end
+    else begin
+        if (vld_start) begin
+            cmd <= ((x_logic == 5) & (y_logic == 5)) ? 
+                    {4'h1, 5'd10, 5'd10, 5'd20, 5'd14, 8'haa } :
+                    {4'h0, x_logic, y_logic, 8'h0f, 10'b0};
+        end
+        else begin
+            cmd <= {4'h0, oldx_logic, oldy_logic, 8'hff, 10'b0};
+        end
+    end
+end
+
+wire [FF_DATA_WIDTH - 1 : 0] snake_cmd;
+wire                         snake_cmd_vld;
+
+snake_core 
+    #(
+    .SNAKE_DEPTH_MAX     (128),
+    .SNAKE_WIDTH         (7),
+    .H_LOGIC_WIDTH       (H_LOGIC_WIDTH),
+    .V_LOGIC_WIDTH       (V_LOGIC_WIDTH),
+    .H_LOGIC_MAX         (H_LOGIC_MAX),
+    .V_LOGIC_MAX         (V_LOGIC_MAX),
+    .COLOR_ID_WIDTH      (COLOR_ID_WIDTH)
+    )
+snake_game(
+    .clk        (clk),
+    .rst        (rst),
+    .enb        (~ff_prefull),
+    .up         (key[2]),
+    .down       (key[1]),
+    .left       (key[3]),
+    .right      (key[0]),
+    .cmd        (snake_cmd),
+    .cmd_vld    (snake_cmd_vld)
+);
+
+reg                          ff_block;
+wire                         ff_full;
+wire                         ff_prefull;
+wire                         ff_empty;
+wire                         ff_wren;
+wire                         ff_rden;
+wire                         ff_rvld;
+wire [FF_DATA_WIDTH - 1 : 0] ff_wdat;
+wire [FF_DATA_WIDTH - 1 : 0] ff_rdat;
+wire                         ff_unblock;
+
+always @(posedge clk) begin
+    if (rst | ff_unblock) begin
+        ff_block <= 0;
+    end
+    else if (ff_rden) begin
+        ff_block <= 1'b1;
+    end
+end
+
+assign ff_wren = snake_cmd_vld; //|vld_start_pp[1 : 0];
+assign ff_wdat = snake_cmd; // cmd;
+assign ff_rden = ~(ff_empty | ff_block);
+
+fifo 
+    #(
+    .ADDR_WIDTH (6),
+    .DATA_WIDTH (FF_DATA_WIDTH),
+    .FIFO_DEPTH (64)
+    )
+i_fifo(
+    .clk        (clk),
+    .rst        (rst),
+    .wren       (ff_wren),
+    .wdat       (ff_wdat),
+    .rden       (ff_rden),
+    .rdat       (ff_rdat),
+    .rvld       (ff_rvld),
+    .full       (ff_full),
+    .prefull    (ff_prefull),
+    .empty      (ff_empty)
+);
+
+// Update ram
+// Draw super pixel
 wire [H_LOGIC_WIDTH - 1 : 0]  pixel_x_logic;
 wire [V_LOGIC_WIDTH - 1 : 0]  pixel_y_logic;
 wire [COLOR_ID_WIDTH - 1 : 0] pixel_color;
 wire                          pixel_vld;
 wire                          pixel_done;
+
+wire [VGA_ADDR_WIDTH - 1 : 0] pixel_addr;
+wire [COLOR_ID_WIDTH - 1 : 0] pixel_data;
+wire                          pixel_wren;
+
+assign pixel_x_logic = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - H_LOGIC_WIDTH];
+assign pixel_y_logic = ff_rdat[FF_DATA_WIDTH - 5  - H_LOGIC_WIDTH : FF_DATA_WIDTH - 4 - H_LOGIC_WIDTH - V_LOGIC_WIDTH];
+assign pixel_color = ff_rdat[FF_DATA_WIDTH - 5 - H_LOGIC_WIDTH - V_LOGIC_WIDTH : FF_DATA_WIDTH - 4 - H_LOGIC_WIDTH - V_LOGIC_WIDTH - COLOR_ID_WIDTH];
+assign pixel_vld = (ff_rdat[FF_DATA_WIDTH - 1 : FF_DATA_WIDTH - 4] == 4'h0) & ff_rvld;
 
 draw_superpixel 
     #(
@@ -178,8 +275,7 @@ draw_superpixel
     .PIXEL_X_MAX       (H_PHY_MAX),
     .PIXEL_Y_MAX       (V_PHY_MAX)
     )
-pixel
-    (
+pixel (
     .clk        (clk),
     .rst        (rst),
     // USER IF
@@ -189,31 +285,154 @@ pixel
     .idata_vld  (pixel_vld),
     .odone      (pixel_done),
     // VGA RAM IF
-    .oaddr      (addr),
-    .odata      (data),
-    .owren      (wren)
+    .oaddr      (pixel_addr),
+    .odata      (pixel_data),
+    .owren      (pixel_wren)
     );
 
-reg srun;
-reg old_vld;
 
-assign pixel_x_logic = (srun) ? x_logic : oldx_logic;
-assign pixel_y_logic = (srun) ? y_logic : oldy_logic;
-assign pixel_color = (srun) ? 8'h0f : 8'hff;
-assign pixel_vld = vld_start | old_vld;
+// Draw rectangle
+wire [H_LOGIC_WIDTH - 1 : 0]  rect_x0_logic;
+wire [V_LOGIC_WIDTH - 1 : 0]  rect_y0_logic;
+wire [H_LOGIC_WIDTH - 1 : 0]  rect_x1_logic;
+wire [V_LOGIC_WIDTH - 1 : 0]  rect_y1_logic;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_color;
+wire                          rect_vld;
+wire                          rect_done;
 
-always @(posedge clk) begin
-    if (rst) begin
-        srun <= 0;
-        old_vld <= 0;
-    end
-    else if (pixel_done) begin
-        srun <= ~srun;
-        old_vld <= ~srun;
-    end
-    else begin
-        old_vld <= 0;
-    end
-end
+wire [VGA_ADDR_WIDTH - 1 : 0] rect_addr;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_data;
+wire                          rect_wren;
+
+assign rect_x0_logic = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - H_LOGIC_WIDTH];
+assign rect_y0_logic = ff_rdat[FF_DATA_WIDTH - 5  - H_LOGIC_WIDTH : FF_DATA_WIDTH - 4 - H_LOGIC_WIDTH - V_LOGIC_WIDTH];
+assign rect_x1_logic = ff_rdat[FF_DATA_WIDTH - 5  - H_LOGIC_WIDTH - V_LOGIC_WIDTH : FF_DATA_WIDTH - 4 - H_LOGIC_WIDTH * 2 - V_LOGIC_WIDTH];
+assign rect_y1_logic = ff_rdat[FF_DATA_WIDTH - 5  - H_LOGIC_WIDTH * 2 - V_LOGIC_WIDTH : FF_DATA_WIDTH - 4 - H_LOGIC_WIDTH * 2 - V_LOGIC_WIDTH * 2];
+assign rect_color = ff_rdat[FF_DATA_WIDTH - 5  - H_LOGIC_WIDTH * 2 - V_LOGIC_WIDTH * 2 : 0];
+assign rect_vld = (ff_rdat[FF_DATA_WIDTH - 1 : FF_DATA_WIDTH - 4] == 4'h1) & ff_rvld;
+
+draw_rectangle_sp
+    #(
+    .SPIXEL_X_WIDTH    (H_LOGIC_WIDTH),
+    .SPIXEL_Y_WIDTH    (V_LOGIC_WIDTH),
+    .SPIXEL_X_MAX      (H_LOGIC_MAX),
+    .SPIXEL_Y_MAX      (V_LOGIC_MAX),
+    .PIXEL_X_WIDTH     (H_PHY_WIDTH),
+    .PIXEL_Y_WIDTH     (V_PHY_WIDTH),
+    .PIXEL_X_MAX       (H_PHY_MAX),
+    .PIXEL_Y_MAX       (V_PHY_MAX)
+    )
+rectangle_sp (
+    .clk                (clk),
+    .rst                (rst),
+    // USER IF
+    .x0                 (rect_x0_logic),
+    .y0                 (rect_y0_logic),
+    .x1                 (rect_x1_logic),
+    .y1                 (rect_y1_logic),
+    .idata              (rect_color),
+    .idata_vld          (rect_vld),
+    .odone              (rect_done),
+    // VGA RAM IF
+    .oaddr              (rect_addr),
+    .odata              (rect_data),
+    .owren              (rect_wren)
+    );
+
+wire    [H_PHY_WIDTH - 1 : 0] rect_px_x0_physic;
+wire    [V_PHY_WIDTH - 1 : 0] rect_px_y0_physic;
+wire    [H_PHY_WIDTH - 1 : 0] rect_px_x1_physic;
+wire    [V_PHY_WIDTH - 1 : 0] rect_px_y1_physic;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_px_color;
+wire                  [1 : 0] rect_px_mode;
+wire                          rect_px_vld;
+wire                          rect_px_half;
+wire                          rect_px_done;
+
+wire [VGA_ADDR_WIDTH - 1 : 0] rect_px_addr;
+wire [COLOR_ID_WIDTH - 1 : 0] rect_px_data;
+wire                          rect_px_wren;
+
+assign rect_px_x0_physic = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - H_PHY_WIDTH];
+assign rect_px_y0_physic = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH : FF_DATA_WIDTH - 4 - H_PHY_WIDTH - V_PHY_WIDTH];
+assign rect_px_color     = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH - V_PHY_WIDTH : 1];
+assign rect_px_vld       = (ff_rdat[FF_DATA_WIDTH - 1 : FF_DATA_WIDTH - 4] == 4'h9) & ff_rvld;
+assign rect_px_mode      = {1'b0, ff_rdat[0]};
+assign rect_px_half      = (~ff_rdat[0]) & rect_px_vld;
+
+draw_rectangle
+    #(
+    .PIXEL_X_WIDTH      (H_PHY_WIDTH),
+    .PIXEL_Y_WIDTH      (V_PHY_WIDTH),
+    .PIXEL_X_MAX        (H_PHY_MAX),
+    .PIXEL_Y_MAX        (V_PHY_MAX)
+    )
+rectangle (
+    .clk                (clk),
+    .rst                (rst),
+    // USER IF
+    .x0                 (rect_px_x0_physic),
+    .y0                 (rect_px_y0_physic),
+    .x1                 (rect_px_x0_physic),
+    .y1                 (rect_px_y0_physic),
+    .mode               (rect_px_mode),
+    .idata              (rect_px_color),
+    .idata_vld          (rect_px_vld),
+    .odone              (rect_px_done),
+    // VGA RAM IF
+    .oaddr              (rect_px_addr),
+    .odata              (rect_px_data),
+    .owren              (rect_px_wren)
+    );
+
+wire    [H_PHY_WIDTH - 1 : 0] char_px_x_physic;
+wire    [V_PHY_WIDTH - 1 : 0] char_px_y_physic;
+wire [COLOR_ID_WIDTH - 1 : 0] char_px_color_fg;
+wire [COLOR_ID_WIDTH - 1 : 0] char_px_color_bg;
+wire                  [7 : 0] char_px_code;
+wire                  [3 : 0] char_px_size;
+wire                  [1 : 0] char_px_mode;
+wire                          char_px_vld;
+wire                          char_px_half;
+wire                          char_px_done;
+
+wire [VGA_ADDR_WIDTH - 1 : 0] char_px_addr;
+wire [COLOR_ID_WIDTH - 1 : 0] char_px_data;
+wire                          char_px_wren;
+
+assign char_px_x_physic = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - H_PHY_WIDTH];
+assign char_px_y_physic = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH : FF_DATA_WIDTH - 4 - H_PHY_WIDTH - V_PHY_WIDTH];
+assign char_px_code     = ff_rdat[FF_DATA_WIDTH - 5  - H_PHY_WIDTH - V_PHY_WIDTH : 1];
+assign char_px_color_fg = ff_rdat[FF_DATA_WIDTH - 5 : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH];
+assign char_px_color_bg = ff_rdat[FF_DATA_WIDTH - 5 - COLOR_ID_WIDTH : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH * 2];
+assign char_px_size     = ff_rdat[FF_DATA_WIDTH - 5 - COLOR_ID_WIDTH * 2 : FF_DATA_WIDTH - 4 - COLOR_ID_WIDTH * 2 - 4];
+assign char_px_vld      = (ff_rdat[FF_DATA_WIDTH - 1 : FF_DATA_WIDTH - 4] == 4'ha) & ff_rvld;
+assign char_px_mode     = {1'b0, ff_rdat[0]};
+assign char_px_half     = (~ff_rdat[0]) & char_px_vld;
+
+draw_char char(
+    .clk                (clk),
+    .rst                (rst),
+    // USER IF
+    .x                  (char_px_x_physic),
+    .y                  (char_px_y_physic),
+    .code               (char_px_code),
+    .size               (char_px_size),
+    .mode               (char_px_mode),
+    .idata_fg           (char_px_color_fg),
+    .idata_bg           (char_px_color_bg),
+    .idata_vld          (char_px_vld),
+    .odone              (char_px_done),
+    // VGA RAM IF
+    .oaddr              (char_px_addr),
+    .odata              (char_px_data),
+    .owren              (char_px_wren)
+);
+
+assign ff_unblock = pixel_done | rect_done | rect_px_done | rect_px_half | char_px_done | char_px_half;
+
+assign addr = pixel_addr | rect_addr | rect_px_addr | char_px_addr;
+assign data = pixel_data | rect_data | rect_px_data | char_px_data;
+assign wren = pixel_wren | rect_wren | rect_px_wren | char_px_wren;
 
 endmodule 

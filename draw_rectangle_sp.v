@@ -1,9 +1,11 @@
-module draw_superpixel(
+module draw_rectangle_sp(
     clk,
     rst,
     // USER IF
-    x,
-    y,
+    x0,
+    y0,
+    x1,
+    y1,
     idata,
     idata_vld,
     odone,
@@ -26,11 +28,12 @@ parameter PIXEL_Y_MAX       = 9'd479;
 parameter VGA_ADDR_WIDTH    = 19;
 parameter COLOR_ID_WIDTH    = 8;
 
-
 input                           clk;
 input                           rst;
-input  [SPIXEL_X_WIDTH - 1 : 0] x;
-input  [SPIXEL_Y_WIDTH - 1 : 0] y;
+input  [SPIXEL_X_WIDTH - 1 : 0] x0;
+input  [SPIXEL_Y_WIDTH - 1 : 0] y0;
+input  [SPIXEL_X_WIDTH - 1 : 0] x1;
+input  [SPIXEL_Y_WIDTH - 1 : 0] y1;
 input  [COLOR_ID_WIDTH - 1 : 0] idata;
 input                           idata_vld;
 output                          odone;
@@ -38,13 +41,20 @@ output [VGA_ADDR_WIDTH - 1 : 0] oaddr;
 output [COLOR_ID_WIDTH - 1 : 0] odata;
 output                          owren;
 
-reg [SPIXEL_X_WIDTH - 1 : 0] x_logic;
-reg [SPIXEL_Y_WIDTH - 1 : 0] y_logic;
+reg [SPIXEL_X_WIDTH - 1 : 0] x0_logic;
+reg [SPIXEL_Y_WIDTH - 1 : 0] y0_logic;
+reg [SPIXEL_X_WIDTH - 1 : 0] x1_logic;
+reg [SPIXEL_Y_WIDTH - 1 : 0] y1_logic;
 
-wire [PIXEL_X_WIDTH - 1 : 0] tlx_physic;
-wire [PIXEL_Y_WIDTH - 1 : 0] tly_physic;
-wire [PIXEL_X_WIDTH - 1 : 0] brx_physic;
-wire [PIXEL_Y_WIDTH - 1 : 0] bry_physic;
+wire [PIXEL_X_WIDTH - 1 : 0] tlx0_physic;
+wire [PIXEL_Y_WIDTH - 1 : 0] tly0_physic;
+wire [PIXEL_X_WIDTH - 1 : 0] brx0_physic;
+wire [PIXEL_Y_WIDTH - 1 : 0] bry0_physic;
+
+wire [PIXEL_X_WIDTH - 1 : 0] tlx1_physic;
+wire [PIXEL_Y_WIDTH - 1 : 0] tly1_physic;
+wire [PIXEL_X_WIDTH - 1 : 0] brx1_physic;
+wire [PIXEL_Y_WIDTH - 1 : 0] bry1_physic;
 
 superpixel2pixel 
     #(
@@ -57,14 +67,35 @@ superpixel2pixel
     .PIXEL_X_MAX    (PIXEL_X_MAX),
     .PIXEL_Y_MAX    (PIXEL_Y_MAX)
     )
-convert
+convert0
     (
-    .x              (x_logic),
-    .y              (y_logic),
-    .tlx            (tlx_physic),
-    .tly            (tly_physic),
-    .brx            (brx_physic),
-    .bry            (bry_physic)
+    .x              (x0_logic),
+    .y              (y0_logic),
+    .tlx            (tlx0_physic),
+    .tly            (tly0_physic),
+    .brx            (brx0_physic),
+    .bry            (bry0_physic)
+    );
+
+superpixel2pixel 
+    #(
+    .SPIXEL_X_WIDTH (SPIXEL_X_WIDTH),
+    .SPIXEL_Y_WIDTH (SPIXEL_Y_WIDTH),
+    .SPIXEL_X_MAX   (SPIXEL_X_MAX),
+    .SPIXEL_Y_MAX   (SPIXEL_Y_MAX),
+    .PIXEL_X_WIDTH  (PIXEL_X_WIDTH),
+    .PIXEL_Y_WIDTH  (PIXEL_Y_WIDTH),
+    .PIXEL_X_MAX    (PIXEL_X_MAX),
+    .PIXEL_Y_MAX    (PIXEL_Y_MAX)
+    )
+convert1
+    (
+    .x              (x1_logic),
+    .y              (y1_logic),
+    .tlx            (tlx1_physic),
+    .tly            (tly1_physic),
+    .brx            (brx1_physic),
+    .bry            (bry1_physic)
     );
 
 reg [PIXEL_X_WIDTH - 1 : 0] x_physic;
@@ -81,14 +112,18 @@ always @(posedge clk) begin
     if (rst) begin
         data <= 0;
         vld_start <= 0;
-        x_logic <= 0;
-        y_logic <= 0;
+        x0_logic <= 0;
+        y0_logic <= 0;
+        x1_logic <= 0;
+        y1_logic <= 0;
     end
     else if (idata_vld) begin
         data <= idata;
         vld_start <= 1;
-        x_logic <= x;
-        y_logic <= y;
+        x0_logic <= x0;
+        y0_logic <= y0;
+        x1_logic <= x1;
+        y1_logic <= y1;
     end
     else begin
         vld_start <= 0;
@@ -111,13 +146,13 @@ always @(posedge clk) begin
         wren <= 0;
     end
     else if (vld_start) begin
-        x_physic <= tlx_physic;
-        y_physic <= tly_physic;
+        x_physic <= tlx0_physic;
+        y_physic <= tly0_physic;
         wren <= 1'b1;
     end
     else if (run) begin
-        x_physic <= (x_physic == brx_physic) ? tlx_physic : x_physic + 1'b1;
-        y_physic <= (x_physic == brx_physic) ? y_physic + 1'b1 : y_physic;
+        x_physic <= (x_physic == brx1_physic) ? tlx0_physic : x_physic + 1'b1;
+        y_physic <= (x_physic == brx1_physic) ? y_physic + 1'b1 : y_physic;
     end
 end
 
@@ -134,7 +169,7 @@ always @(posedge clk) begin
     done_reg <= (rst) ? 0 : done;
 end
 
-assign done = (x_physic == (brx_physic)) && (y_physic == bry_physic);
+assign done = (x_physic == (brx1_physic)) && (y_physic == bry1_physic);
 assign odone = done_reg;
 
 assign oaddr = (wren) ? addr : 0;
