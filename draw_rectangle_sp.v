@@ -41,10 +41,10 @@ output [VGA_ADDR_WIDTH - 1 : 0] oaddr;
 output [COLOR_ID_WIDTH - 1 : 0] odata;
 output                          owren;
 
-reg [PIXEL_X_WIDTH - 1 : 0] x0_logic;
-reg [PIXEL_Y_WIDTH - 1 : 0] y0_logic;
-reg [PIXEL_X_WIDTH - 1 : 0] x1_logic;
-reg [PIXEL_Y_WIDTH - 1 : 0] y1_logic;
+reg [SPIXEL_X_WIDTH - 1 : 0] x0_logic;
+reg [SPIXEL_Y_WIDTH - 1 : 0] y0_logic;
+reg [SPIXEL_X_WIDTH - 1 : 0] x1_logic;
+reg [SPIXEL_Y_WIDTH - 1 : 0] y1_logic;
 
 wire [PIXEL_X_WIDTH - 1 : 0] tlx0_physic;
 wire [PIXEL_Y_WIDTH - 1 : 0] tly0_physic;
@@ -106,6 +106,7 @@ reg                          wren;
 reg                          vld_start;
 
 reg run;
+wire done;
 
 always @(posedge clk) begin
     if (rst) begin
@@ -163,7 +164,6 @@ pixel2addr p2a(
     .addr   (addr)
 );
 
-wire done;
 reg done_reg;
 always @(posedge clk) begin
     done_reg <= (rst) ? 0 : done;
