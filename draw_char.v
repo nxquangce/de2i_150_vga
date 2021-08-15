@@ -528,7 +528,7 @@ always @(posedge clk) begin
             map[4] <= 5'b10001;
             map[5] <= 5'b11110;
             map[6] <= 5'b10000;
-            map[7] <= 5'b10000;
+            map[7] <= 5'b10001;
             map[8] <= 5'b01110;
         end
         8'h6E: begin // n
