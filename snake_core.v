@@ -236,13 +236,14 @@ localparam CMD_POINT_ZERO2_1 = {4'ha, SCOREX_COLOR_FG, SCOREX_COLOR_BG, SCOREX_S
 
 wire [CMD_WIDTH - 1 : 0] cmd_startscren;
 wire                     cmd_startscren_vld;
-reg startscreen_enb;
+wire                     start_game_vld;
+reg                      startscreen_enb;
 
 always @(posedge clk) begin
     if (rst) begin
         startscreen_enb <= 1;
     end
-    else if (right) begin
+    else if (start_game_vld) begin
         startscreen_enb <= 0;
     end
 end
@@ -254,6 +255,7 @@ snake_startscreen i_snake_startscreen(
     .down       (down),
     .left       (left),
     .right      (right),
+    .start      (start_game_vld),
     .enb        (startscreen_enb & enb),
     .cmd        (cmd_startscren),
     .cmd_vld    (cmd_startscren_vld)
