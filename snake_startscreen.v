@@ -7,6 +7,7 @@ module snake_startscreen (
     left,
     right,
     start,
+    settings,
     cmd,
     cmd_vld
 );
@@ -34,6 +35,7 @@ input                      down;
 input                      left;
 input                      right;
 output                     start;
+output             [2 : 0] settings;
 output [CMD_WIDTH - 1 : 0] cmd;
 output                     cmd_vld;
 
@@ -136,10 +138,10 @@ always @(posedge clk) begin
     end
     else if (setting_enb) begin
         if (up) begin
-            setting_id <= setting_id + 1'b1;
+            setting_id <= setting_id - 1'b1;
         end
         else if (down) begin
-            setting_id <= setting_id - 1'b1;
+            setting_id <= setting_id + 1'b1;
         end
     end
 end
@@ -172,7 +174,7 @@ localparam SETTING_LEVEL_POSX = SETTING_MODE_POSX;
 localparam SETTING_LEVEL_POSY = SETTING_MODE_POSY + 9'd40;
 localparam SETTING_MAP_POSX = SETTING_LEVEL_POSX;
 localparam SETTING_MAP_POSY = SETTING_LEVEL_POSY + 9'd40;
-localparam SETTING_OK_POSX = SETTING_MAP_POSY + 10'd54;
+localparam SETTING_OK_POSX = SETTING_MAP_POSX + 10'd54;
 localparam SETTING_OK_POSY = SETTING_MAP_POSY + 9'd60;
 
 localparam SETTING_TITLE_COLOR = 8'h3c;
@@ -402,6 +404,7 @@ always @(posedge clk) begin
 end
 
 assign start = (ops_id == 1'b0) & (~setting_enb) & right;
+assign settings = level_reg;
 assign cmd = cmd_reg;
 assign cmd_vld = cmd_vld_reg;
 

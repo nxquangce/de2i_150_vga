@@ -1,6 +1,6 @@
 \[Updating\]
 # DE2i-150 VGA
-This is a sample project on DE2i-150 FPGA to display graphic on monitor through VGA interface. Moreover, this project id included some mini project for demonstrating.  
+This is a sample project on DE2i-150 FPGA to display graphic on monitor through VGA interface. Moreover, this project is included some mini projects for demonstrating.  
 
 ## General design
 VGA controller read data in memory (RAM) to generate signals to VGA port. User writes data to that memory to display. There are drawing modules take responsibility to do that job. Control commands to instruct these modules is issued from a FIFO. After all, works to do are write reasonable commands to the FIFO.  

@@ -597,6 +597,17 @@ always @(posedge clk) begin
             map[7] <= 5'b01000;
             map[8] <= 5'b00110;
         end
+        8'h76: begin // v
+            map[0] <= 5'b00000;
+            map[1] <= 5'b00000;
+            map[2] <= 5'b10001;
+            map[3] <= 5'b10001;
+            map[4] <= 5'b10001;
+            map[5] <= 5'b10001;
+            map[6] <= 5'b10001;
+            map[7] <= 5'b01010;
+            map[8] <= 5'b00100;
+        end
         8'h80: begin // up arrow - custom
             map[0] <= 5'b00100;
             map[1] <= 5'b01110;
