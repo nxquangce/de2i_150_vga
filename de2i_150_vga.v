@@ -179,6 +179,17 @@ always @(posedge clk) begin
     end
 end
 
+reg                          ff_block;
+wire                         ff_full;
+wire                         ff_prefull;
+wire                         ff_empty;
+wire                         ff_wren;
+wire                         ff_rden;
+wire                         ff_rvld;
+wire [FF_DATA_WIDTH - 1 : 0] ff_wdat;
+wire [FF_DATA_WIDTH - 1 : 0] ff_rdat;
+wire                         ff_unblock;
+
 wire [FF_DATA_WIDTH - 1 : 0] snake_cmd;
 wire                         snake_cmd_vld;
 
@@ -203,17 +214,6 @@ snake_game(
     .cmd        (snake_cmd),
     .cmd_vld    (snake_cmd_vld)
 );
-
-reg                          ff_block;
-wire                         ff_full;
-wire                         ff_prefull;
-wire                         ff_empty;
-wire                         ff_wren;
-wire                         ff_rden;
-wire                         ff_rvld;
-wire [FF_DATA_WIDTH - 1 : 0] ff_wdat;
-wire [FF_DATA_WIDTH - 1 : 0] ff_rdat;
-wire                         ff_unblock;
 
 always @(posedge clk) begin
     if (rst | ff_unblock) begin

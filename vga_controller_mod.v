@@ -52,7 +52,7 @@ end
 //////////////////////////
 //////INDEX addr.
 assign VGA_CLK_n = ~iVGA_CLK;
-vgaram2p (
+vgaram2p data_ram(
 	// User
 	.data       (idata),
 	.wraddress  (iaddr),
